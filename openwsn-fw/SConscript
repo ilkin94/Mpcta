@@ -234,8 +234,8 @@ elif env['toolchain']=='armgcc':
         env.Append(LINKFLAGS     = '-g3')
         if env['revision'] == "A1":
             env.Append(LINKFLAGS   = '-DREVA1=1')
-		
-		# object manipulation
+
+        # object manipulation
         env.Replace(OBJCOPY      = 'arm-none-eabi-objcopy')
         env.Replace(OBJDUMP      = 'arm-none-eabi-objdump')
         # archiver
@@ -723,6 +723,51 @@ def IotLabM3_bootload(target, source, env):
     # wait for threads to finish
     for t in bootloadThreads:
         countingSem.acquire()
+
+#Added to include the support for z1 bootload
+#z1 bootload supports - starts here
+class z1_bootloadThread(threading.Thread):
+    def __init__(self,comPort,hexFile,countingSem):
+
+        # store params
+        self.comPort         = comPort
+        self.hexFile         = hexFile
+        self.countingSem     = countingSem
+
+        # initialize parent class
+        threading.Thread.__init__(self)
+        self.name            = 'z1_bootloadThread_{0}'.format(self.comPort)
+
+    def run(self):
+        print 'starting bootloading on {0}'.format(self.comPort)
+        subprocess.call(
+            'python '+os.path.join('bootloader','z1','z1-bsl-nopic')+' --z1 -c {0} -r -e -I -p "{1}"'.format(self.comPort,self.hexFile), #using z1-bsl had no effect
+            shell=True
+        )
+        print 'done bootloading on {0}'.format(self.comPort)
+
+        # indicate done
+        self.countingSem.release()
+
+def z1_bootload(target, source, env):
+    bootloadThreads = []
+    countingSem     = threading.Semaphore(0)
+    # create threads
+    for comPort in env['bootload'].split(','):
+        bootloadThreads += [
+            z1_bootloadThread(
+                comPort      = comPort,
+                hexFile      = source[0],
+                countingSem  = countingSem,
+            )
+        ]
+    # start threads
+    for t in bootloadThreads:
+        t.start()
+    # wait for threads to finish
+    for t in bootloadThreads:
+        countingSem.acquire()
+#z1 bootload support - ends here
         
 # bootload
 def BootloadFunc():
@@ -749,6 +794,12 @@ def BootloadFunc():
             action      = openmotestm_bootload,
             suffix      = '.phonyupload',
             src_suffix  = '.bin'
+         )
+    elif env['board']=='z1':    # add case for z1
+         return Builder(
+            action      = z1_bootload,
+            suffix      = '.phonyupload',
+            src_suffix  = '.ihex',
          )
     else:
         raise SystemError('bootloading on board={0} unsupported.'.format(env['board']))

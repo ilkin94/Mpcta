@@ -32,6 +32,7 @@ from   openvisualizer.moteConnector.SerialTester import SerialTester
 BAUDRATE_TELOSB = 115200
 BAUDRATE_GINA   = 115200
 BAUDRATE_WSN430 = 115200
+BAUDRATE_Z1 = 115200
 
 def findSerialPorts():
     '''
@@ -64,6 +65,8 @@ def findSerialPorts():
                         serialports.append( (str(val[1]),BAUDRATE_GINA) )
                     elif val[0].find('ProlificSerial')>-1:
                         serialports.append( (str(val[1]),BAUDRATE_WSN430) )
+		    elif val[0].find('USBSER')>-1:
+                        serialports.append( (str(val[1]),BAUDRATE_Z1) )
     elif os.name=='posix':
         if platform.system() == 'Darwin':
             portMask = ['/dev/tty.usbserial-*']
