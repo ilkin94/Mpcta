@@ -10,6 +10,24 @@
 
 #include "opendefs.h"
 
+
+/**
+ * @brief      { Macro for allocating the circular buffer }
+ *
+ * @param      x     { name of the  buffer which needs to be created}
+ * @param      y     { Size of the buffer }
+ *
+ * @return     { Creates  a circular buffer of the given name and size}
+ */
+#define CIRCBUF_DEF(x,y)          \
+    uint8_t x##_space[y];     \
+    circBuf_t x = {               \
+        .buffer = x##_space,      \
+        .head = 0,                \
+        .tail = 0,                \
+        .maxLen = y               \
+    }
+
 /**
 \addtogroup drivers
 \{
@@ -34,6 +52,25 @@
          encoded by a single byte in the code.
 */
 #define SERIAL_INPUT_BUFFER_SIZE  200
+
+/**
+ * {serial port commands which are related to data processing must
+ * be prefixed by 'D'}
+ */
+#define DATA_COMMAND_PREFIX ((uint8_t)'D')
+
+/**
+ * {serial port commands which are related to control must
+ * be prefixed by 'E'}
+ */
+#define CONTROL_COMMAND ((uint8_t)'C')
+
+/**
+ * { Constants definitions, 127 bytes is the maximum size of 802.15.4 packet
+ * Another three bytes are for packet category,command id and payload }
+ */
+#define MAX_SERIAL_PAYLOAD_SIZE 129
+
 
 /// Modes of the openserial module.
 enum {
@@ -103,21 +140,22 @@ typedef struct {
     uint8_t             debugPrintCounter;
     openserial_rsvpt*   registeredCmd;
     // input
-    uint8_t             reqFrame[1+1+2+1]; // flag (1B), command (2B), CRC (2B), flag (1B)
+    uint8_t             reqFrame[MAX_SERIAL_PAYLOAD_SIZE];
     uint8_t             reqFrameIdx;
     uint8_t             lastRxByte;
     bool                busyReceiving;
-    bool                inputEscaping;
-    uint16_t            inputCrc;
-    uint8_t             inputBufFill;
-    uint8_t             inputBuf[SERIAL_INPUT_BUFFER_SIZE];
-    // output
-    bool                outputBufFilled;
-    uint16_t            outputCrc;
-    uint8_t             outputBufIdxW;
-    uint8_t             outputBufIdxR;
-    uint8_t             outputBuf[SERIAL_OUTPUT_BUFFER_SIZE];
 } openserial_vars_t;
+
+/**
+ * { structure for ring buffer implementation}
+ */
+typedef struct {
+    uint8_t * const buffer;
+    int head;
+    int tail;
+    uint8_t fill_level;
+    const int maxLen;
+} circBuf_t;
 
 // admin
 void      openserial_init(void);
@@ -165,6 +203,16 @@ bool      debugPrint_outBufferIndexes(void);
 // interrupt handlers
 void      isr_openserial_rx(void);
 void      isr_openserial_tx(void);
+
+/**
+ * @brief      { function used for printing serial debugging messages}
+ *
+ * @param      ch        {  pointer to string array }
+ * @param[in]  data_len   { The data length }
+ *
+ * @return     { returns the  number of bytes which are added to buffer}
+ */
+uint8_t openserial_printf(char *ch,uint8_t data_len);
 
 /**
 \}
