@@ -187,6 +187,23 @@ bool neighbors_isStableNeighbor(open_addr_t* address) {
 }
 
 /**
+ * @brief      {gets the information of the neighbors}
+ *
+ * @param[in]  index   The of the neighbor
+ * @param      target  pointer to the nieghborRow
+ *
+ * @return     { description_of_the_return_value }
+ */
+bool neighbors_getInfo(uint8_t index, neighborRow_t** target){
+    if (index >= neighbors_getNumNeighbors()) {
+        return FALSE;
+    } else {
+        *target = &(neighbors_vars.neighbors[index]);
+        return TRUE;
+    }
+}
+
+/**
 \brief Indicate whether some neighbor is a stable neighbor
 
 \param[in] index into the neighbor table.

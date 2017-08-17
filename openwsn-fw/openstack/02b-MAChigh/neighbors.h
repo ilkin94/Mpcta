@@ -100,6 +100,9 @@ void          neighbors_removeOld(void);
 // debug
 bool          debugPrint_neighbors(void);
 
+
+bool          neighbors_getInfo(uint8_t index, neighborRow_t** target);
+
 /**
 \}
 \}
