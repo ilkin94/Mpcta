@@ -19,6 +19,7 @@ void openbridge_triggerData() {
    OpenQueueEntry_t* pkt;
    uint8_t           numDataBytes;
   
+  openserial_printf("sending data",sizeof("sending data"));
    numDataBytes = openserial_getInputBufferFilllevel();
   
    //poipoi xv
@@ -59,10 +60,11 @@ void openbridge_triggerData() {
               openserial_printError(COMPONENT_OPENBRIDGE,ERR_INVALIDSERIALFRAME,
                             (errorparameter_t)0,
                             (errorparameter_t)0);
-      }        
+      }
       //send
       if ((iphc_sendFromBridge(pkt))==E_FAIL) {
          openqueue_freePacketBuffer(pkt);
+        leds_error_toggle();
       }
    }
 }
@@ -83,15 +85,15 @@ void openbridge_sendDone(OpenQueueEntry_t* msg, owerror_t error) {
 void openbridge_receive(OpenQueueEntry_t* msg) {
    
    // prepend previous hop
-   packetfunctions_reserveHeaderSize(msg,LENGTH_ADDR64b);
-   memcpy(msg->payload,msg->l2_nextORpreviousHop.addr_64b,LENGTH_ADDR64b);
+   //packetfunctions_reserveHeaderSize(msg,LENGTH_ADDR64b);
+   //memcpy(msg->payload,msg->l2_nextORpreviousHop.addr_64b,LENGTH_ADDR64b);
    
    // prepend next hop (me)
-   packetfunctions_reserveHeaderSize(msg,LENGTH_ADDR64b);
-   memcpy(msg->payload,idmanager_getMyID(ADDR_64B)->addr_64b,LENGTH_ADDR64b);
+   //packetfunctions_reserveHeaderSize(msg,LENGTH_ADDR64b);
+   //memcpy(msg->payload,idmanager_getMyID(ADDR_64B)->addr_64b,LENGTH_ADDR64b);
    
    // send packet over serial (will be memcopied into serial buffer)
-   openserial_printData((uint8_t*)(msg->payload),msg->length);
+   openserial_printf((uint8_t*)(msg->payload),msg->length);
    
    // free packet
    openqueue_freePacketBuffer(msg);

@@ -84,7 +84,18 @@ uint8_t handle_control_commands(void);
 
 uint8_t handle_data_commands(void);
 
+uint8_t inject_udp_packet();
 
+
+
+uint8_t ping_packet[] = {0x14,0x15,0x92,0x00,0x00,0x00,0x00,0x02,0xF1,0x7A,0x55,0x3A, \
+    0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x01,0x14,0x15,0x92,0x00,0x00,0x00,0x00,0x02,0x80, \
+    0x00,0x28,0x74,0x18,0xBC,0x0C,0x0E,0x00,'Y','A','D','H','U','N','A','N','D'};
+
+static const uint8_t packet_dst_addr[]   = {
+   0xbb, 0xbb, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01
+};
 //=========================== public ==========================================
 
 //===== admin
@@ -189,8 +200,6 @@ uint8_t openserial_handleCommands(void) {
         handle_control_commands();
     else if(openserial_vars.reqFrame[1] == 'D')
         handle_data_commands();
-    else
-        openserial_printf("invalid serial command",sizeof("invalid serial command"));
 }
 
 uint8_t handle_control_commands() {
@@ -203,24 +212,56 @@ uint8_t handle_control_commands() {
             nbr_count = neighbors_getNumNeighbors();
             openserial_printf(&nbr_count,1);
             break;
-        default:
-            openserial_printf("unidentifiable control command\r\n",sizeof("Unidefiable control command\r\n"));
     }
 }
 
 uint8_t handle_data_commands() {
     switch(openserial_vars.reqFrame[2]) {
         case 0:         //0 corresponds to UDP packet so inject udp packet
-        
+        inject_udp_packet();
+        //openbridge_triggerData();
+        break;
+        default:
+            ;
     }
-
 }
 
 
 uint8_t inject_udp_packet()
 {
+    uint8_t payload[] = "Yadhunandana";
+    OpenQueueEntry_t*    pkt;
     // don't run if not synch
-   if (ieee154e_isSynch() == FALSE) return;
+    if (ieee154e_isSynch() == FALSE) return;
+
+    //This is because, since only mac layer is running in DAGroot udp_send always fails so
+    //just return from here.
+    if (idmanager_getIsDAGroot()) {
+          return;
+    }
+    //Now start forming the udp packet.
+    // get a free packet buffer.
+    pkt = openqueue_getFreePacketBuffer(COMPONENT_OPENSERIAL);
+    if (pkt == NULL) {
+        leds_error_toggle();
+        return;
+    }
+    pkt->owner                         = COMPONENT_OPENSERIAL;
+    pkt->creator                       = COMPONENT_OPENSERIAL;
+    pkt->l4_protocol                   = IANA_UDP;
+    pkt->l4_destination_port           = WKP_UDP_OPENSERIAL;
+    pkt->l4_sourcePortORicmpv6Type     = WKP_UDP_OPENSERIAL;
+    pkt->l3_destinationAdd.type        = ADDR_128B;
+    memcpy(&pkt->l3_destinationAdd.addr_128b[0],packet_dst_addr,16);
+
+    packetfunctions_reserveHeaderSize(pkt,sizeof(payload)-1);
+    memcpy(&pkt->payload[0],payload,sizeof(payload)-1);
+
+    if ((openudp_send(pkt))==E_FAIL) {
+        openqueue_freePacketBuffer(pkt);
+        leds_error_toggle();
+        //openserial_printf("fail\r\n",sizeof("fail\r\n"));
+    }
 }
 
 //=========================== interrupt handlers ==============================
@@ -416,12 +457,14 @@ owerror_t openserial_printSniffedPacket(uint8_t* buffer, uint8_t length, uint8_t
 
 uint8_t openserial_getInputBufferFilllevel() {
     //Disabled
-    return E_SUCCESS;
+    return 46;
 }
 
 uint8_t openserial_getInputBuffer(uint8_t* bufferToWrite, uint8_t maxNumBytes) {
+
+    memcpy(bufferToWrite,ping_packet,46);
     //Disabled
-    return E_SUCCESS;
+    return 46;
 }
 
 //===== debugprint
