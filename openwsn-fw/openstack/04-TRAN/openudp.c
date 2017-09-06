@@ -206,6 +206,7 @@ void openudp_receive(OpenQueueEntry_t* msg) {
             break;
       }
    } else {
+      openserial_printf(&msg->payload[0],msg->length,'D');
       msg->l4_sourcePortORicmpv6Type  = msg->payload[0]*256+msg->payload[1];
       msg->l4_destination_port        = msg->payload[2]*256+msg->payload[3];
       packetfunctions_tossHeader(msg,sizeof(udp_ht));

@@ -32,7 +32,9 @@
 enum control_commands
 {
     SET_DAG_ROOT = 0,
+    GET_NODE_TYPE,          //This is to check whether the node is dagroot or not, This will be useful for python code.
     GET_NEIGHBORS_COUNT,
+    GET_NEIGHBORS,
     ADD_SLOT,
     REMOVE_SLOT,
     DUMP_RADIO_PACKETS
@@ -66,6 +68,8 @@ openserial_vars_t openserial_vars;
 // uart_buffer tx_buffer = {{0},0};
 uint8_t bytes_tx_count = 0;
 
+uint8_t start_frame_flag = 0x7e;
+
 //Defining transmission buffer for the uart.
 CIRCBUF_DEF(tx_buffer,SERIAL_OUTPUT_BUFFER_SIZE);
 
@@ -84,7 +88,9 @@ uint8_t handle_control_commands(void);
 
 uint8_t handle_data_commands(void);
 
-uint8_t inject_udp_packet();
+uint8_t inject_udp_packet(void);
+
+uint8_t send_response_packet(uint8_t *,uint8_t);
 
 
 
@@ -124,25 +130,45 @@ void openserial_startInput() {
     uart_enableInterrupts();       // Enable USCI_A1 TX & RX interrupt
     DISABLE_INTERRUPTS();
 
+
+    //leds_error_toggle();
+    //HERE I NEED TO CLEAR UP THE BUFFER, IF 0X7E IS NOT FOUND IN THE BEGINNING OF THE BUFFER, THEN CHECK FOR BUFFER FILL LEVEL
+    //THIS IS DONE TO MAKE SURE THAT, IF WE LOOSE THE BEGINNING OF THE FRAME DUE TO SCHEDULING, WE HAVE TO THROW AWAY THE PARTIAL FRAME
+    //SITTING IN THE RX BUFFER BECAUSE THIS IS A MALFORMED FRAME.
+    //START PARSING THE FRESH FRAME SO IT SHOULD CONTAIN 0X7E AS THE FIRST BYTE.
+    do
+    {
+        //openserial_printf(&rx_buffer.fill_level,1);
+        if(!circular_buffer_pop(&rx_buffer,&openserial_vars.reqFrame)) 
+        {
+            ENABLE_INTERRUPTS();
+            return;
+        }
+        //openserial_printf("ffff",sizeof("ffff")-1);
+    }while(start_frame_flag != openserial_vars.reqFrame[0] && rx_buffer.fill_level);
+
     //Here check whether buffer size is filled enough.
     //TODO: check the buffer fill level without accessing buffer members directly.
-    if(rx_buffer.buffer[rx_buffer.tail] > rx_buffer.fill_level) {
-        // openserial_printf("buffer isn't full enough\r\n",sizeof("buffer isn't full enough\r\n"));
+    if(rx_buffer.buffer[rx_buffer.tail] > rx_buffer.fill_level) 
+    {
+        //openserial_printf("buffer isn't full enough\r\n",sizeof("buffer isn't full enough\r\n"));
+        //leds_error_toggle();
         return;
     }
 
     if(circular_buffer_pop(&rx_buffer,&openserial_vars.reqFrame))
     {
-        //openserial_printf("Popping a packet",sizeof("Popping a packet"));
-        openserial_printf(openserial_vars.reqFrame,1);
+        //openserial_printf(openserial_vars.reqFrame,1,'D');
         //first byte represents the length of the command, parse first byte, number of bytes.
         for(idx_count = 1; idx_count < openserial_vars.reqFrame[0];idx_count++)
             circular_buffer_pop(&rx_buffer,openserial_vars.reqFrame+idx_count);
 
         //Dump the read values for debugging purposes
-        openserial_printf(openserial_vars.reqFrame,openserial_vars.reqFrame[0]);
+        //openserial_printf(openserial_vars.reqFrame,openserial_vars.reqFrame[0],'D');
         openserial_handleCommands();
+        //leds_error_off();
     }
+    ENABLE_INTERRUPTS();
 }
 
 void openserial_startOutput() {
@@ -179,11 +205,21 @@ void openserial_stop() {
  *
  * @return     { description_of_the_return_value }
  */
-uint8_t openserial_printf(char *data_ptr , uint8_t data_len) {
+uint8_t openserial_printf(char *data_ptr , uint8_t data_len,uint8_t type) {
     uint8_t idx;
     INTERRUPT_DECLARATION();
 
     DISABLE_INTERRUPTS();
+
+    if(!circular_buffer_push(&tx_buffer,start_frame_flag))
+        leds_error_on();
+
+    if(!circular_buffer_push(&tx_buffer,data_len+2)) //+2 because we include type of message byte and length byte as part of the packet
+        leds_error_on();
+
+    if(!circular_buffer_push(&tx_buffer,type)) //+1 because we include type of message byte as part of the packet
+        leds_error_on();
+
     //Here i am going to fill the tx_buffer which will be eventually printed to serial terminal.
     for(idx = 0 ;idx < data_len; idx++) 
     {
@@ -203,14 +239,29 @@ uint8_t openserial_handleCommands(void) {
 }
 
 uint8_t handle_control_commands() {
-    uint8_t nbr_count;
-    switch(openserial_vars.reqFrame[2]) {
-        case 0:             //0 corresponds to set dagroot command.
+    uint8_t nbr_count,index,nbr_list[40],node_type = FALSE;
+    neighborRow_t* neighbor;
+    switch(openserial_vars.reqFrame[2]) 
+    {
+        case SET_DAG_ROOT:             //0 corresponds to set dagroot command.
             idmanager_setIsDAGroot(TRUE);
             break;
-        case 1:             //1 corresponds to get neighbors count
+        case GET_NODE_TYPE:             //1 corresponds to get node type 1 means dagroot, zero means normal mote
+            node_type = idmanager_getIsDAGroot();
+            send_response_packet(&node_type,1);
+            break;
+        case GET_NEIGHBORS_COUNT:
             nbr_count = neighbors_getNumNeighbors();
-            openserial_printf(&nbr_count,1);
+            send_response_packet(&nbr_count,1);
+            break;
+        case GET_NEIGHBORS:
+            nbr_count = neighbors_getNumNeighbors();
+            for(index = 0;index < nbr_count;index++)
+            {
+                if (neighbors_getInfo(index, &neighbor) != FALSE)
+                    memcpy(nbr_list+index*8,&neighbor->addr_64b.addr_64b,8);
+            }
+            send_response_packet(nbr_list,nbr_count*8);
             break;
     }
 }
@@ -219,17 +270,26 @@ uint8_t handle_data_commands() {
     switch(openserial_vars.reqFrame[2]) {
         case 0:         //0 corresponds to UDP packet so inject udp packet
         inject_udp_packet();
-        //openbridge_triggerData();
+        //leds_error_toggle();
         break;
         default:
             ;
     }
 }
 
+uint8_t send_response_packet(uint8_t *data,uint8_t length)
+{
+    uint8_t resp[50] = {0};
+    //In this first byte takes into account length byte, command category, command sub category,length of result
+    resp[0] = openserial_vars.reqFrame[1];
+    resp[1] = openserial_vars.reqFrame[2];
+    memcpy(resp+2,data,length);
+    openserial_printf(resp,length+2,'R'); //resp[0] contains the length of the packet
+}
+
 
 uint8_t inject_udp_packet()
 {
-    uint8_t payload[] = "Yadhunandana";
     OpenQueueEntry_t*    pkt;
     // don't run if not synch
     if (ieee154e_isSynch() == FALSE) return;
@@ -237,6 +297,8 @@ uint8_t inject_udp_packet()
     //This is because, since only mac layer is running in DAGroot udp_send always fails so
     //just return from here.
     if (idmanager_getIsDAGroot()) {
+        //Here I have to call openbridge to inject packet and packet has to be in iphc format.
+        openbridge_triggerData();
           return;
     }
     //Now start forming the udp packet.
@@ -254,14 +316,28 @@ uint8_t inject_udp_packet()
     pkt->l3_destinationAdd.type        = ADDR_128B;
     memcpy(&pkt->l3_destinationAdd.addr_128b[0],packet_dst_addr,16);
 
-    packetfunctions_reserveHeaderSize(pkt,sizeof(payload)-1);
-    memcpy(&pkt->payload[0],payload,sizeof(payload)-1);
+    packetfunctions_reserveHeaderSize(pkt,openserial_vars.reqFrame[0]-3);
+    memcpy(&pkt->payload[0],openserial_vars.reqFrame+3,openserial_vars.reqFrame[0]-3);
 
     if ((openudp_send(pkt))==E_FAIL) {
         openqueue_freePacketBuffer(pkt);
         leds_error_toggle();
-        //openserial_printf("fail\r\n",sizeof("fail\r\n"));
     }
+}
+
+
+//===== retrieving inputBuffer for openbridge packet inject
+
+uint8_t openserial_getInputBufferFilllevel()
+{
+    return openserial_vars.reqFrame[0]-3;
+}
+
+uint8_t openserial_getInputBuffer(uint8_t* bufferToWrite, uint8_t maxNumBytes)
+{
+    //openserial_printf(openserial_vars.reqFrame+3,openserial_vars.reqFrame[0]-3,'D');
+    memcpy(bufferToWrite,openserial_vars.reqFrame+3,openserial_vars.reqFrame[0]-3);
+    return openserial_vars.reqFrame[0]-3;
 }
 
 //=========================== interrupt handlers ==============================
@@ -351,8 +427,6 @@ uint8_t circular_buffer_pop(circBuf_t *buffer_ptr,uint8_t *data)
     buffer_ptr->fill_level--;
     return TRUE;
 }
-
-
 
 
 //Unused prototypes of functions.
@@ -451,20 +525,6 @@ owerror_t openserial_printData(uint8_t* buffer, uint8_t length) {
 owerror_t openserial_printSniffedPacket(uint8_t* buffer, uint8_t length, uint8_t channel) {
     //Disabled
     return E_SUCCESS;
-}
-
-//===== retrieving inputBuffer
-
-uint8_t openserial_getInputBufferFilllevel() {
-    //Disabled
-    return 46;
-}
-
-uint8_t openserial_getInputBuffer(uint8_t* bufferToWrite, uint8_t maxNumBytes) {
-
-    memcpy(bufferToWrite,ping_packet,46);
-    //Disabled
-    return 46;
 }
 
 //===== debugprint

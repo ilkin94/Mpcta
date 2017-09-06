@@ -14,8 +14,7 @@ counter = 0
 try:
     while True:
         counter = counter+1
-        message = "  Sample data:  "+str(counter)+" "
-        print "Now sending data"
+        message = "from udp socket"
         s.sendto(message, (UDP_IP, UDP_PORT))
         time.sleep(1)
         

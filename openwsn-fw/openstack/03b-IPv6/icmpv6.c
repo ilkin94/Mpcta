@@ -48,6 +48,7 @@ void icmpv6_receive(OpenQueueEntry_t* msg) {
       case IANA_ICMPv6_ECHO_REQUEST:
       case IANA_ICMPv6_ECHO_REPLY:
          icmpv6echo_receive(msg);
+         openserial_printf("sending echo",sizeof("sending echo")-1,'D');
          break;
       case IANA_ICMPv6_RPL:
          icmpv6rpl_receive(msg);

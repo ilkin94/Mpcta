@@ -19,23 +19,23 @@ void openbridge_triggerData() {
    OpenQueueEntry_t* pkt;
    uint8_t           numDataBytes;
   
-  openserial_printf("sending data",sizeof("sending data"));
+
    numDataBytes = openserial_getInputBufferFilllevel();
   
-   //poipoi xv
-   //this is a temporal workaround as we are never supposed to get chunks of data
-   //longer than input buffer size.. I assume that HDLC will solve that.
-   // MAC header is 13B + 8 next hop so we cannot accept packets that are longer than 118B
-   if (numDataBytes>(136 - 10/*21*/) || numDataBytes<8){
+    //poipoi xv
+    //this is a temporal workaround as we are never supposed to get chunks of data
+    //longer than input buffer size.. I assume that HDLC will solve that.
+    // MAC header is 13B + 8 next hop so we cannot accept packets that are longer than 118B
+    if (numDataBytes>(136 - 10/*21*/) || numDataBytes<8){
    //to prevent too short or too long serial frames to kill the stack  
        openserial_printError(COMPONENT_OPENBRIDGE,ERR_INPUTBUFFER_LENGTH,
                    (errorparameter_t)numDataBytes,
                    (errorparameter_t)0);
        return;
-   }
+    }
   
-   //copying the buffer once we know it is not too big
-   openserial_getInputBuffer(&(input_buffer[0]),numDataBytes);
+    //copying the buffer once we know it is not too big
+    openserial_getInputBuffer(&(input_buffer[0]),numDataBytes);
   
    if (idmanager_getIsDAGroot()==TRUE && numDataBytes>0) {
       pkt = openqueue_getFreePacketBuffer(COMPONENT_OPENBRIDGE);
@@ -45,6 +45,7 @@ void openbridge_triggerData() {
                                (errorparameter_t)0);
          return;
       }
+
       //admin
       pkt->creator  = COMPONENT_OPENBRIDGE;
       pkt->owner    = COMPONENT_OPENBRIDGE;
@@ -85,15 +86,16 @@ void openbridge_sendDone(OpenQueueEntry_t* msg, owerror_t error) {
 void openbridge_receive(OpenQueueEntry_t* msg) {
    
    // prepend previous hop
-   //packetfunctions_reserveHeaderSize(msg,LENGTH_ADDR64b);
-   //memcpy(msg->payload,msg->l2_nextORpreviousHop.addr_64b,LENGTH_ADDR64b);
+   packetfunctions_reserveHeaderSize(msg,LENGTH_ADDR64b);
+   memcpy(msg->payload,msg->l2_nextORpreviousHop.addr_64b,LENGTH_ADDR64b);
    
    // prepend next hop (me)
-   //packetfunctions_reserveHeaderSize(msg,LENGTH_ADDR64b);
-   //memcpy(msg->payload,idmanager_getMyID(ADDR_64B)->addr_64b,LENGTH_ADDR64b);
+   packetfunctions_reserveHeaderSize(msg,LENGTH_ADDR64b);
+   memcpy(msg->payload,idmanager_getMyID(ADDR_64B)->addr_64b,LENGTH_ADDR64b);
    
    // send packet over serial (will be memcopied into serial buffer)
-   openserial_printf((uint8_t*)(msg->payload),msg->length);
+   openserial_printf((uint8_t*)(msg->payload),msg->length,'P');
+   //openserial_printf("\r\n",2);
    
    // free packet
    openqueue_freePacketBuffer(msg);

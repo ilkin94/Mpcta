@@ -212,7 +212,7 @@ void      isr_openserial_tx(void);
  *
  * @return     { returns the  number of bytes which are added to buffer}
  */
-uint8_t openserial_printf(char *ch,uint8_t data_len);
+uint8_t openserial_printf(char *ch,uint8_t data_len,uint8_t type);
 
 /**
 \}

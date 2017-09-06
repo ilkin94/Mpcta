@@ -6,7 +6,7 @@ import time
 
 class Routing():
     
-    debug = True
+    debug = False
     
     #Flags required for parsing the packet
     '''
@@ -195,7 +195,6 @@ class Routing():
                 print "wrong payload lenght on ICMPv6 packet {0}".format(",".join(str(c) for c in data))
                 return
 
-
             ipv6dic['icmpv6_type']=ipv6dic['payload'][0]
             ipv6dic['icmpv6_code']=ipv6dic['payload'][1]
             ipv6dic['icmpv6_checksum']=ipv6dic['payload'][2:4]
@@ -206,11 +205,17 @@ class Routing():
         elif ipv6dic['next_header']==self.IANA_UDP:
             print "UDP packet"
             return
-
+        #Only if the RPL type is RPL Control i.e first byte is 155, then only it is DAO otherwise it might echo reply
+        #process only if the packet DAO
+        if(ipv6dic['icmpv6_type'] == 0x9b):
+            print "DAO message update parents"
+        else:
+            print "This icmp message is not DAO return from here"
+            return False
+        
         #Calling api's related to RPL
-        
         self._indicateDAO((ipv6dic['src_addr'],ipv6dic['app_payload']))
-        
+        return True
         
     def lowpan_to_ipv6(self,data):
 
@@ -498,7 +503,6 @@ class Routing():
             #print ":".join(hex(i) for i in dao)
             while len(dao)>0:
                 if   dao[0]==self._TRANSIT_INFORMATION_TYPE:
-                    print "TRANSIT"
                     if(source[7] == 0x03):
                         print "dao: "+':'.join([hex(i) for i in dao])
                     # transit information option
@@ -514,7 +518,6 @@ class Routing():
                     parents      += [dao[14:22]]
                     dao           = dao[22:]
                 elif dao[0]==self._TARGET_INFORMATION_TYPE:
-                    print "TARGET"
                     if(source[7] == 0x03):
                         print "dao: "+':'.join([hex(i) for i in dao])
                     dao_target_information['Target_information_type']               = dao[0]
@@ -554,13 +557,15 @@ class Routing():
         self.parents.update({data[0]:data[1]})
         self.parentsLastSeen.update({data[0]: time.time()})
         
-        print "updated parents clearing the list based on last seen"
-        self._clearNodeTimeout()
+        print self.parents
         
-    def getParents(self,sender,signal,data):
+        print "updated parents clearing the list based on last seen"
+        self.clearNodeTimeout()
+        
+    def getParents(self):
         return self.parents
         
-    def _clearNodeTimeout(self):
+    def clearNodeTimeout(self):
         threshold = time.time() - self.NODE_TIMEOUT_THRESHOLD
         for node in self.parentsLastSeen.keys():
             if self.parentsLastSeen[node] < threshold:
@@ -568,7 +573,7 @@ class Routing():
                     del self.parents[node]
                 del self.parentsLastSeen[node]
                 
-    def ipv6_to_lowpan(self,data):
+    def convert_to_iphc(self,data):
             
             ipv6_bytes       = data
 
@@ -603,23 +608,22 @@ class Routing():
             if isLinkLocal:
                 lowpan['route'] = [dst_addr]
             else:
-                lowpan['route'] = self._getSourceRoute(dst_addr)
+                lowpan['route'] = self.getSourceRoute(dst_addr)
 
                 if len(lowpan['route'])<2:
                     # no source route could be found
-                    print 'no source route to {0}'.format(lowpan['dst_addr'])
+                    print ':'.join(hex(i) for i in lowpan['dst_addr'])
                     # TODO: return ICMPv6 message
                     return
 
                 lowpan['route'].pop() #remove last as this is me.
 
             lowpan['nextHop'] = lowpan['route'][len(lowpan['route'])-1] #get next hop as this has to be the destination address, this is the last element on the list
+            
             # turn dictionary of fields into raw bytes
             lowpan_bytes     = self.reassemble_lowpan(lowpan)
 
-
-
-            print "Here I have ready packet with source route and everything, Just need to inject to a mote."
+            return (lowpan['nextHop'],lowpan_bytes)
             # log
             #if log.isEnabledFor(logging.DEBUG):
         
@@ -640,7 +644,7 @@ class Routing():
 
         :returns: A dictionary of fields.
         '''
-
+        print len(ipv6)
         if len(ipv6)<self.IPv6_HEADER_LEN:
             raise ValueError('Packet too small ({0} bytes) no space for IPv6 header'.format(len(ipv6)))
 
@@ -651,7 +655,7 @@ class Routing():
 
         returnVal['traffic_class']     = ((ipv6[0] & 0x0F) << 4) + (ipv6[1] >> 4)
         returnVal['flow_label']        = ((ipv6[1] & 0x0F) << 16) + (ipv6[2] << 8) + ipv6[3]
-        returnVal['payload_length']    = u.buf2int(ipv6[4:6])
+        returnVal['payload_length']    = self.buf2int(ipv6[4:6])
         returnVal['next_header']       = ipv6[6]
         returnVal['hop_limit']         = ipv6[7]
         returnVal['src_addr']          = ipv6[8:8+16]
@@ -659,21 +663,332 @@ class Routing():
         returnVal['payload']           = ipv6[40:]
 
         return returnVal
+        
+    def buf2int(self,buf):
+        '''
+        Converts some consecutive bytes of a buffer into an integer. 
+        Big-endianness is assumed.
+        
+        :param buf:      [in] Byte array.
+        '''
+        returnVal = 0
+        for i in range(len(buf)):
+            returnVal += buf[i]<<(8*(len(buf)-i-1))
+        return returnVal
+        
+    def ipv6_to_lowpan(self,ipv6):
+        '''
+        Compact IPv6 header into 6LowPAN header.
+
+        :param ipv6: [in] A disassembled IPv6 packet.
+
+        :raises: ValueError when some part of the process is not defined in
+            the standard.
+        :raises: NotImplementedError when some part of the process is defined in
+            the standard, but not implemented in this module.
+
+        :returns: A disassembled 6LoWPAN packet.
+        '''
+
+        # header
+        lowpan = {}
+
+        # tf
+        if ipv6['traffic_class']!=0:
+            raise NotImplementedError('traffic_class={0} unsupported'.format(ipv6['traffic_class']))
+        # comment the flow_label check as it's zero in 6lowpan network. See follow RFC:
+        # https://tools.ietf.org/html/rfc4944#section-10.1
+        # if ipv6['flow_label']!=0:
+            # raise NotImplementedError('flow_label={0} unsupported'.format(ipv6['flow_label']))
+        lowpan['tf']         = []
+
+        # nh
+        lowpan['nh']         = [ipv6['next_header']]
+
+        # hlim
+        lowpan['hlim']       = [ipv6['hop_limit']]
+
+        # cid
+        lowpan['cid']        = []
+
+        # src_addr
+        lowpan['src_addr']   = ipv6['src_addr']
+
+        # dst_addr
+        lowpan['dst_addr']   = ipv6['dst_addr']
+
+        # payload
+        lowpan['payload']    = ipv6['payload']
+
+        # join
+        return lowpan
+        
+        
+    def getSourceRoute(self,destAddr):
+        '''
+        Retrieve the source route to a given mote.
+        
+        :param destAddr: [in] The EUI64 address of the final destination.
+        
+        :returns: The source route, a list of EUI64 address, ordered from
+            destination to source.
+        '''
+        
+        sourceRoute = []
+        try:
+            parents=self.getParents()
+            self.getSourceRoute_internal(destAddr,sourceRoute,parents)
+        except Exception as err:
+            print err
+            raise
+        
+        return sourceRoute
+    def getSourceRoute_internal(self,destAddr,sourceRoute,parents):
+        
+        if not destAddr:
+            # no more parents
+            return
+        
+        if not parents.get(tuple(destAddr)):
+            # this node does not have a list of parents
+            return
+        
+        # first time add destination address
+        if destAddr not in sourceRoute:
+            sourceRoute     += [destAddr]
+        
+        # pick a parent
+        parent               = parents.get(tuple(destAddr))[0]
+        
+        # avoid loops
+        if parent not in sourceRoute:
+            sourceRoute     += [parent]
+            
+            # add non empty parents recursively
+            nextparent       = self.getSourceRoute_internal(parent,sourceRoute,parents)
+            
+            if nextparent:
+                sourceRoute += [nextparent]
+                
+    def reassemble_lowpan(self,lowpan):
+        '''
+        Turn dictionary of 6LoWPAN header fields into byte array.
+
+        :param lowpan: [in] dictionary of fields representing a 6LoWPAN header.
+
+        :returns: A list of bytes representing the 6LoWPAN packet.
+        '''
+        returnVal            = []
+
+        # the 6lowpan packet contains 4 parts
+        # 1. Page Dispatch (page 1)
+        # 2. RH3 6LoRH(s)
+        # 3. RPI 6LoRH (maybe elided)
+        # 4. IPinIP 6LoRH (maybe elided)
+        # 5. IPHC inner header
+
+        # ===================== 1. Page Dispatch (page 1) =====================
+
+        returnVal += [self.PAGE_ONE_DISPATCH]
+
+        if lowpan['src_addr'][:8] != [187, 187, 0, 0, 0, 0, 0, 0]:
+            compressReference = [187, 187, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
+        else:
+            compressReference = lowpan['src_addr']
 
 
+        # destination address
+        if len(lowpan['route'])>1:
+            # source route needed, get prefix from compression Reference
+            if len(compressReference)==16:
+                prefix=compressReference[:8]
 
+            # =======================3. RH3 6LoRH(s) ==============================
+            sizeUnitType = 0xff
+            size     = 0
+            hopList  = []
 
+            for hop in list(reversed(lowpan['route'][1:])):
+                size += 1
+                if compressReference[-8:-1] == hop[-8:-1]:
+                    if sizeUnitType != 0xff:
+                        if  sizeUnitType != self.TYPE_6LoRH_RH3_0:
+                            returnVal += [self.CRITICAL_6LoRH|(size-2),sizeUnitType]
+                            returnVal += hopList
+                            size = 1
+                            sizeUnitType = self.TYPE_6LoRH_RH3_0
+                            hopList = [hop[-1]]
+                            compressReference = hop
+                        else:
+                            hopList += [hop[-1]]
+                            compressReference = hop
+                    else:
+                        sizeUnitType = self.TYPE_6LoRH_RH3_0
+                        hopList += [hop[-1]]
+                        compressReference = hop
+                elif compressReference[-8:-2] == hop[-8:-2]:
+                    if sizeUnitType != 0xff:
+                        if  sizeUnitType != self.TYPE_6LoRH_RH3_1:
+                            returnVal += [self.CRITICAL_6LoRH|(size-2),sizeUnitType]
+                            returnVal += hopList
+                            size = 1
+                            sizeUnitType = self.TYPE_6LoRH_RH3_1
+                            hopList = hop[-2:]
+                            compressReference = hop
+                        else:
+                            hopList += hop[-2:]
+                            compressReference = hop
+                    else:
+                        sizeUnitType = self.TYPE_6LoRH_RH3_1
+                        hopList += hop[-2:]
+                        compressReference = hop
+                elif compressReference[-8:-4] == hop[-8:-4]:
+                    if sizeUnitType != 0xff:
+                        if  sizeUnitType != self.TYPE_6LoRH_RH3_2:
+                            returnVal += [self.CRITICAL_6LoRH|(size-2),sizeUnitType]
+                            returnVal += hopList
+                            size = 1
+                            sizeUnitType = self.TYPE_6LoRH_RH3_2
+                            hopList = hop[-4:]
+                            compressReference = hop
+                        else:
+                            hopList += hop[-4:]
+                            compressReference = hop
+                    else:
+                        sizeUnitType = self.TYPE_6LoRH_RH3_2
+                        hopList += hop[-4:]
+                        compressReference = hop
+                else:
+                    if sizeUnitType != 0xff:
+                        if  sizeUnitType != self.TYPE_6LoRH_RH3_3:
+                            returnVal += [self.CRITICAL_6LoRH|(size-2),sizeUnitType]
+                            returnVal += hopList
+                            size = 1
+                            sizeUnitType = self.TYPE_6LoRH_RH3_3
+                            hopList = hop
+                            compressReference = hop
+                        else:
+                            hopList += hop
+                            compressReference = hop
+                    else:
+                        sizeUnitType = self.TYPE_6LoRH_RH3_3
+                        hopList += hop
+                        compressReference = hop
 
+            returnVal += [self.CRITICAL_6LoRH|(size-1),sizeUnitType]
+            returnVal += hopList
 
+        # ===================== 2. IPinIP 6LoRH ===============================
 
+        if lowpan['src_addr'][:8] != [187, 187, 0, 0, 0, 0, 0, 0]:
+            # add RPI
+            # TBD
+            flag = self.O_FLAG | self.I_FLAG | self.K_FLAG
+            senderRank = 0 # rank of dagroot
+            returnVal += [self.CRITICAL_6LoRH | flag,self.TYPE_6LoRH_RPI,senderRank]
+            # ip in ip 6lorh
+            l = 1
+            returnVal += [self.ELECTIVE_6LoRH | l,self.TYPE_6LoRH_IP_IN_IP]
+            returnVal += lowpan['hlim']
 
+            compressReference = [187, 187, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
+        else:
+            compressReference = lowpan['src_addr']
 
+        # ========================= 4. IPHC inner header ======================
+        # Byte1: 011(3b) TF(2b) NH(1b) HLIM(2b)
+        if len(lowpan['tf'])==0:
+            tf               = self.IPHC_TF_ELIDED
+        else:
+            raise NotImplementedError()
+        # next header is in NHC format
+        nh               = self.IPHC_NH_INLINE
+        if   lowpan['hlim'][0]==1:
+            hlim             = self.IPHC_HLIM_1
+            lowpan['hlim'] = []
+        elif lowpan['hlim'][0]==64:
+            hlim             = self.IPHC_HLIM_64
+            lowpan['hlim'] = []
+        elif lowpan['hlim'][0]==255:
+            hlim             = self.IPHC_HLIM_255
+            lowpan['hlim'] = []
+        else:
+            hlim             = self.IPHC_HLIM_INLINE
+        returnVal           += [(self.IPHC_DISPATCH<<5) + (tf<<3) + (nh<<2) + (hlim<<0)]
 
+        # Byte2: CID(1b) SAC(1b) SAM(2b) M(1b) DAC(2b) DAM(2b)
+        if len(lowpan['cid'])==0:
+            cid              = self.IPHC_CID_NO
+        else:
+            cid              = self.IPHC_CID_YES
 
+        if self._isLinkLocal(lowpan['src_addr']):
+            sac                  = self.IPHC_SAC_STATELESS
+            lowpan['src_addr'] = lowpan['src_addr'][8:]
+        else:
+            sac                  = self.IPHC_SAC_STATEFUL
+            if lowpan['src_addr'][:8] == [187, 187, 0, 0, 0, 0, 0, 0]:
+                lowpan['src_addr'] = lowpan['src_addr'][8:]
 
+        if   len(lowpan['src_addr'])==128/8:
+            sam              = self.IPHC_SAM_128B
+        elif len(lowpan['src_addr'])==64/8:
+            sam              = self.IPHC_SAM_64B
+        elif len(lowpan['src_addr'])==16/8:
+            sam              = self.IPHC_SAM_16B
+        elif len(lowpan['src_addr'])==0:
+            sam              = self.IPHC_SAM_ELIDED
+        else:
+            raise SystemError()
 
+        if self._isLinkLocal(lowpan['dst_addr']):
+            dac                  = self.IPHC_DAC_STATELESS
+            lowpan['dst_addr'] = lowpan['dst_addr'][8:]
+        else:
+            dac                  = self.IPHC_DAC_STATEFUL
+            if lowpan['dst_addr'][:8] == [187, 187, 0, 0, 0, 0, 0, 0]:
+                lowpan['dst_addr'] = lowpan['dst_addr'][8:]
 
+        m                    = self.IPHC_M_NO
+        if   len(lowpan['dst_addr'])==128/8:
+            dam              = self.IPHC_DAM_128B
+        elif len(lowpan['dst_addr'])==64/8:
+            dam              = self.IPHC_DAM_64B
+        elif len(lowpan['dst_addr'])==16/8:
+            dam              = self.IPHC_DAM_16B
+        elif len(lowpan['dst_addr'])==0:
+            dam              = self.IPHC_DAM_ELIDED
+        else:
+            raise SystemError()
+        returnVal           += [(cid << 7) + (sac << 6) + (sam << 4) + (m << 3) + (dac << 2) + (dam << 0)]
 
+        # tf
+        returnVal           += lowpan['tf']
+
+        # nh
+        returnVal           += lowpan['nh']
+
+        # hlim
+        returnVal           += lowpan['hlim']
+
+        # cid
+        returnVal           += lowpan['cid']
+
+        # src_addr
+        returnVal           += lowpan['src_addr']
+
+        # dst_addr
+        returnVal           += lowpan['dst_addr']
+
+        # payload
+        returnVal           += lowpan['payload']
+
+        return returnVal
+        
+    def _isLinkLocal(self, ipv6Address):
+        if ipv6Address[:8] == self.LINK_LOCAL_PREFIX:
+            return True
+        return False
 
 
 

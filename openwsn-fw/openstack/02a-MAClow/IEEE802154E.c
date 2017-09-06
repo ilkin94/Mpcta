@@ -2689,6 +2689,8 @@ void notif_receive(OpenQueueEntry_t* packetReceived) {
    scheduler_push_task(task_sixtopNotifReceive,TASKPRIO_SIXTOP_NOTIF_RX);
    // wake up the scheduler
    SCHEDULER_WAKEUP();
+   //openserial_printf("802rcv",6);
+   //openserial_printf(&packetReceived->packet,ieee154e_vars.dataReceived->length,'D');
 }
 
 //======= stats

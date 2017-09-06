@@ -86,6 +86,6 @@ void openstack_init(void) {
 
    //Added to print the address after booting.
    eui64_get(boot_message+12);
-   openserial_printf(boot_message,20);
+   openserial_printf(boot_message,20,'D');
 }
 
