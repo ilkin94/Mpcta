@@ -38,7 +38,7 @@ outputBuf       = ''
 
 isDAGRoot       = False
 
-isDAOReceived   = False 
+isDAOReceived   = False
 
 #Beginning of moteProbe Class definition
 
@@ -142,17 +142,11 @@ class moteProbe(threading.Thread):
 
     def close(self):
         self.goOn = False
-        
-    def prepare_UDP_packet(self,payload):
-        print "prepare_UDP_packet"
-#End of ModeProbe class definition
-
-
 
 #Thread which continuosly receives data from UDP socket and writes into output buffer
 class SocketThread(threading.Thread):
     
-    def __init__(self,port_number=5005,host="127.0.0.1"):
+    def __init__(self,port_number=8889,host="127.0.0.1"):
         
         self.goOn                 = True
 
@@ -178,36 +172,19 @@ class SocketThread(threading.Thread):
                 # buffer size is 1024 bytes
                 try:
                     data, addr = self.socket_handler.recvfrom(1024)
-                    global isDAOReceived
-                    if(isDAOReceived):
-                        self.inject_data(data)
-                except:
+                    data = struct.unpack(H2R_PACKET_FORMAT, data)
+                    print ("Control command received: %f" % data)
+                    #global outputBuf
+                    #global outputBufLock
+                    #outputBufLock = True
+                    #command_inject_udp_packet[1] = len(command_inject_udp_packet) + len(data)-1;
+                    #outputBuf += command_inject_udp_packet+data;
+                    #outputBufLock  = False
+                except socket.timeout:
                     print "timeout exception"
                     continue
         except KeyboardInterrupt:
             self.close()
-    
-    def inject_data(self,data):
-            
-            global outputBuf
-            global outputBufLock 
-            sys.stdout.flush()
-            test2                = UDPPacket()
-            test2.setData("Yadhunandana")
-            tmp2 = test2.getPacket()
-            print 'hello 0'
-            lowpan_packet2 = self.modeprobeobject.routing_instance.convert_to_iphc(tmp2)
-            print 'hello1'
-            str_lowpanbytes2 = ''.join(chr(i) for i in lowpan_packet[0]+lowpan_packet[1])
-            str_lowpanbytes2 = bytearray(str_lowpanbytes2)
-            
-            print "hello2"
-            print ':'.join('{:02x}'.format(x) for x in str_lowpanbytes2)
-            
-            outputBufLock = True
-            command_inject_udp_packet[1] = len(command_inject_udp_packet) + len(str_lowpanbytes2)-1; #Here subtracting one because 0x7e is not included in the length
-            outputBuf += command_inject_udp_packet+str_lowpanbytes2;
-            outputBufLock  = False
     
     #This function is used for stopping this thread from the main thread
     def close(self):
@@ -264,107 +241,3 @@ if __name__=="__main__":
     moteProbe_object.close()
     #socketThread_object.close()
     exit()
-    
-
-#if __name__=="__main__":
-    #moteProbe_object    = moteProbe('/dev/ttyUSB0')
-    #test                = UDPPacket() 
-    #socketThread_object = SocketThread()
-
-    #print "Interactive mode. Commands:"
-    #print "  root to make mote DAGroot"
-    #print "  motetype to get motetype"
-    #print "  nbrcount to get neighbors count"
-    #print "  getnbr to get neighbors"
-    #print "  ping to ping the neighbor"
-    #print "  inject to inject packet"
-    #print "  test to test code block"
-    #print "  quit to exit "
-    
-    #try:
-        #while(1):
-            #global outputBuf
-            #global outputBufLock 
-            #sys.stdout.flush()
-            #cmd = raw_input('>> ')
-            #sys.stdout.flush()
-            #if cmd == "root":
-                #print "sending set DAG root command"
-                #sys.stdout.flush()
-                #outputBufLock = True
-                #outputBuf += command_set_dagroot;
-                #outputBufLock  = False
-            #elif cmd == "motetype":
-                #print "sending command to get node type"
-                #sys.stdout.flush()
-                #outputBufLock = True
-                #outputBuf += command_get_node_type;
-                #outputBufLock  = False
-            #elif cmd == "nbrcount":
-                #print "sending command get neighbors count"
-                #sys.stdout.flush()
-                #outputBufLock = True
-                #outputBuf += command_get_neighbor_count;
-                #outputBufLock  = False
-            #elif cmd == "getnbr":
-                #print "sending command get neighbors command"
-                #sys.stdout.flush()
-                #outputBufLock = True
-                #outputBuf += command_get_neighbors;
-                #outputBufLock  = False
-              
-            #elif cmd == "ping":
-                #print "sending command ping packet"
-                #sys.stdout.flush()
-                #outputBufLock = True
-                #command_inject_udp_packet[1] = len(command_inject_udp_packet) + len(ping_packet)-1; #Here subtracting one because 0x7e is not included in the length
-                #outputBuf += command_inject_udp_packet+ping_packet;
-                #outputBufLock  = False
-            #elif cmd == "inject":
-                #print "injecting udp packet by converting lowpan packet"
-                #sys.stdout.flush()
-                #test.setData("Yadhunandana")
-                #tmp = test.getPacket()
-                #lowpan_packet = moteProbe_object.routing_instance.convert_to_iphc(tmp)
-                #print type(lowpan_packet[0][1])
-                
-                #str_lowpanbytes = ''.join(chr(i) for i in lowpan_packet[0]+lowpan_packet[1])
-                #str_lowpanbytes = bytearray(str_lowpanbytes)
-                #print ':'.join('{:02x}'.format(x) for x in str_lowpanbytes)
-                
-                #outputBufLock = True
-                #command_inject_udp_packet[1] = len(command_inject_udp_packet) + len(str_lowpanbytes)-1; #Here subtracting one because 0x7e is not included in the length
-                #outputBuf += command_inject_udp_packet+str_lowpanbytes;
-                #outputBufLock  = False
-                
-            #elif cmd == "test":
-                #print "This block is for testing the feature put random code in here"
-                #sys.stdout.flush()
-                #test.setData("sample")
-                #tmp = test.getPacket()
-                #lowpan_packet = moteProbe_object.routing_instance.convert_to_iphc(tmp)
-                #print type(lowpan_packet[0][1])
-                
-                #str_lowpanbytes = ''.join(chr(i) for i in lowpan_packet[0]+lowpan_packet[1])
-                #str_lowpanbytes = bytearray(str_lowpanbytes)
-                #print ':'.join('{:02x}'.format(x) for x in str_lowpanbytes)
-                
-                #outputBufLock = True
-                #command_inject_udp_packet[1] = len(command_inject_udp_packet) + len(str_lowpanbytes)-1; #Here subtracting one because 0x7e is not included in the length
-                #outputBuf += command_inject_udp_packet+str_lowpanbytes;
-                #outputBufLock  = False
-
-            #elif cmd == "quit":
-              #print "exiting..."
-              #break
-
-            #else:
-                #print "No such command: " + ' '.join(cmd)
-    #except KeyboardInterrupt:
-        #socketThread_object.close()
-        #moteProbe_object.close()
-        #exit()
-
-    #moteProbe_object.close()
-    #socketThread_object.close()
-    #exit()

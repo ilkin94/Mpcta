@@ -2,6 +2,7 @@
 import socket
 import sys
 import time
+import struct
 
 #UDP echo server application, sends back the received data to client 
 
@@ -14,9 +15,10 @@ counter = 0
 try:
     while True:
         counter = counter+1
-        message = "from udp socket"
-        s.sendto(message, (UDP_IP, UDP_PORT))
-        time.sleep(1)
+        message = 100.0
+        print "sending data: "+str(message)
+        s.sendto(struct.pack('f',message), (UDP_IP, UDP_PORT))
+        time.sleep(0.1)
         
 except KeyboardInterrupt:
     exit()

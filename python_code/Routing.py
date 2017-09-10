@@ -138,7 +138,7 @@ class Routing():
     def __init__(self):
         print "Routing instance created"
         self.state                = {}
-        self.networkPrefix        = None
+        self.networkPrefix        = [0xbb,0xbb, 0, 0, 0, 0, 0, 0] #I have set this manually, However this is set by dispatcher in openvisualizer
         self.dagRootEui64         = None
         self.latencyStats         = {}
         
@@ -157,10 +157,9 @@ class Routing():
         ipv6dic={}
         #build lowpan dictionary from the data
         ipv6dic = self.lowpan_to_ipv6(data)
-        success = True
-        dispatchSignal = None
 
         #read next header
+        print ipv6dic
         if ipv6dic['next_header']==self.IANA_IPv6HOPHEADER:
             #hop by hop header present, check flags and parse
             if (ipv6dic['hop_flags'] & self.O_FLAG) == self.O_FLAG:
@@ -171,6 +170,7 @@ class Routing():
                 print "detected possible loop on upstream route from {0}".format(",".join(str(c) for c in ipv6dic['src_addr']))
             #skip the header and process the rest of the message.
             ipv6dic['next_header'] = ipv6dic['hop_next_header']
+
 
         #===================================================================
 
@@ -203,7 +203,8 @@ class Routing():
             #this function does the job
             #dispatchSignal=(tuple(ipv6dic['dst_addr']),self.PROTO_ICMPv6,ipv6dic['icmpv6_type'])
         elif ipv6dic['next_header']==self.IANA_UDP:
-            print "UDP packet"
+            print "UDP packet ipv6 format"
+            print ':'.join(str(hex(i)) for i in self.reassemble_ipv6_packet(ipv6dic))
             return
         #Only if the RPL type is RPL Control i.e first byte is 155, then only it is DAO otherwise it might echo reply
         #process only if the packet DAO
@@ -373,7 +374,7 @@ class Routing():
                 pkt_ipv6['src_addr'] = pkt_lowpan[ptr:ptr+16]
                 ptr = ptr + 16
             else:
-                log.error("wrong sam=="+str(sam))
+                print "wrong sam=="+str(sam)
 
             # dac
             dac = ((pkt_lowpan[1]) >> 2) & 0x01
@@ -566,6 +567,7 @@ class Routing():
         return self.parents
         
     def clearNodeTimeout(self):
+        print "Clearing the nodes after timeout"
         threshold = time.time() - self.NODE_TIMEOUT_THRESHOLD
         for node in self.parentsLastSeen.keys():
             if self.parentsLastSeen[node] < threshold:
@@ -644,7 +646,6 @@ class Routing():
 
         :returns: A dictionary of fields.
         '''
-        print len(ipv6)
         if len(ipv6)<self.IPv6_HEADER_LEN:
             raise ValueError('Packet too small ({0} bytes) no space for IPv6 header'.format(len(ipv6)))
 
@@ -769,7 +770,7 @@ class Routing():
             
             if nextparent:
                 sourceRoute += [nextparent]
-                
+
     def reassemble_lowpan(self,lowpan):
         '''
         Turn dictionary of 6LoWPAN header fields into byte array.
@@ -989,6 +990,22 @@ class Routing():
         if ipv6Address[:8] == self.LINK_LOCAL_PREFIX:
             return True
         return False
+
+    def reassemble_ipv6_packet(self, pkt):
+        pktw = [((6 << 4) + (pkt['traffic_class'] >> 4)),
+                (((pkt['traffic_class'] & 0x0F) << 4) + (pkt['flow_label'] >> 16)),
+                ((pkt['flow_label'] >> 8) & 0x00FF),
+                (pkt['flow_label'] & 0x0000FF),
+                (pkt['payload_length'] >> 8),
+                (pkt['payload_length'] & 0x00FF),
+                (pkt['next_header']),
+                (pkt['hop_limit'])]
+        for i in range(0,16):
+            pktw.append( (pkt['src_addr'][i]) )
+        for i in range(0,16):
+            pktw.append( (pkt['dst_addr'][i]) )
+
+        return pktw + pkt['payload']
 
 
 

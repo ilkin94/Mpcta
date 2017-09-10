@@ -15,8 +15,8 @@ class UDPPacket:
     d['dst']    = bytearray([0xbb,0xbb,0x0,0x0,0x0,0x0,0x0,0x0,0x14,0x15,0x92,0x0,0x0,0x0,0x0,0x2])     #Destination address
     
     #IPv6 payload, In otherwords UDP part
-    d['sport']  = 61617 #Source port of UDP     2 bytes
-    d['dport']  = 61617 #Destination port UDP   2 bytes
+    d['sport']  = 61618 #Source port of UDP     2 bytes
+    d['dport']  = 61618 #Destination port UDP   2 bytes
     d['len']    = 0x12  #UDP Payload Length     2 bytes
     d['chsum']  = 0x00  #Checksum this field is optional so making 0x00
     d['data']   = bytearray(['Y','a','d','h','u','n','a','n','d','a','n','a']) #UDP payload
@@ -24,7 +24,7 @@ class UDPPacket:
     #In this function passed values are included in the UDP packet 
     def __init__(self,source=bytearray([0xbb,0xbb,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x1]),
         dst=bytearray([0xbb,0xbb,0x0,0x0,0x0,0x0,0x0,0x0,0x14,0x15,0x92,0x0,0x0,0x0,0x0,0x2]),
-        sourceport=61617,dport=61617,data="Yadhunandana"):
+        sourceport=61618,dport=61618,data="Yadhunandana"):
             #update the dictionary values
             self.d['src'] = source
             self.d['dst'] = dst
