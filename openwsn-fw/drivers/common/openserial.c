@@ -92,6 +92,9 @@ uint8_t inject_udp_packet(void);
 
 uint8_t send_response_packet(uint8_t *,uint8_t);
 
+void udp_inject_sendDone(OpenQueueEntry_t* msg, owerror_t error);
+
+void udp_inject_receive(OpenQueueEntry_t* msg);
 
 
 uint8_t ping_packet[] = {0x14,0x15,0x92,0x00,0x00,0x00,0x00,0x02,0xF1,0x7A,0x55,0x3A, \
@@ -102,6 +105,8 @@ static const uint8_t packet_dst_addr[]   = {
    0xbb, 0xbb, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01
 };
+
+udp_inject_vars_t udp_inject_vars;
 //=========================== public ==========================================
 
 //===== admin
@@ -112,6 +117,15 @@ void openserial_init() {
         isr_openserial_tx,
         isr_openserial_rx
     );
+
+    // clear local variables
+    memset(&udp_inject_vars,0,sizeof(udp_inject_vars_t));
+
+    // register at UDP stack
+    udp_inject_vars.desc.port              = WKP_UDP_OPENSERIAL;
+    udp_inject_vars.desc.callbackReceive   = &udp_inject_receive;
+    udp_inject_vars.desc.callbackSendDone  = &udp_inject_sendDone;
+    openudp_register(&udp_inject_vars.desc);
 }
 
 //===== scheduling
@@ -123,6 +137,7 @@ void openserial_init() {
  */
 void openserial_startInput() {
     uint8_t idx_count,packet_len;
+    uint8_t buff_status[] = {1,1,1,1,1,0};
 
     INTERRUPT_DECLARATION();
     uart_clearTxInterrupts();
@@ -130,6 +145,9 @@ void openserial_startInput() {
     uart_enableInterrupts();       // Enable USCI_A1 TX & RX interrupt
     DISABLE_INTERRUPTS();
 
+    buff_status[5] = rx_buffer.fill_level;
+    if(rx_buffer.fill_level > 190)
+        openserial_printf(buff_status,6,'D');
 
     //leds_error_toggle();
     //HERE I NEED TO CLEAR UP THE BUFFER, IF 0X7E IS NOT FOUND IN THE BEGINNING OF THE BUFFER, THEN CHECK FOR BUFFER FILL LEVEL
@@ -173,6 +191,11 @@ void openserial_startInput() {
 
 void openserial_startOutput() {
     uint8_t data = NULL;
+
+    uint8_t buff_status[] = {0,0,0,0,0,0};
+    buff_status[5] = tx_buffer.fill_level;
+    if(tx_buffer.fill_level > 190)
+        openserial_printf(buff_status,6,'D');
 
     INTERRUPT_DECLARATION();
     //=== flush TX buffer,
@@ -244,7 +267,7 @@ uint8_t handle_control_commands() {
     switch(openserial_vars.reqFrame[2]) 
     {
         case SET_DAG_ROOT:             //0 corresponds to set dagroot command.
-            idmanager_setIsDAGroot(TRUE);
+            idmanager_triggerAboutRoot();
             break;
         case GET_NODE_TYPE:             //1 corresponds to get node type 1 means dagroot, zero means normal mote
             node_type = idmanager_getIsDAGroot();
@@ -323,6 +346,26 @@ uint8_t inject_udp_packet()
         openqueue_freePacketBuffer(pkt);
         leds_error_toggle();
     }
+}
+
+void udp_inject_sendDone(OpenQueueEntry_t* msg, owerror_t error) {
+    uint8_t buff[] = {7,7,7,7,7};
+    openserial_printf(buff,sizeof(buff),'D');
+    openqueue_freePacketBuffer(msg);
+}
+
+void udp_inject_receive(OpenQueueEntry_t* pkt) {
+    uint8_t buff[] = {8,8,8,8,8};
+    openserial_printf(buff,sizeof(buff),'D');
+   openserial_printf(&pkt->payload[0],pkt->length,'P');
+   openqueue_freePacketBuffer(pkt);
+   
+   openserial_printError(
+      COMPONENT_UINJECT,
+      ERR_RCVD_ECHO_REPLY,
+      (errorparameter_t)0,
+      (errorparameter_t)0
+   );
 }
 
 
@@ -504,6 +547,10 @@ owerror_t openserial_printError(
     errorparameter_t    arg2
 ) {
     //Disabled
+    uint8_t buff[] = {9,9,9,0,0};
+    buff[3] = calling_component;
+    buff[4] = error_code;
+    openserial_printf(buff,5,'E');
     return E_SUCCESS;
 }
 

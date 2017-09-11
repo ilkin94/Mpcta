@@ -9,6 +9,7 @@
 #define __OPENSERIAL_H
 
 #include "opendefs.h"
+#include "openudp.h"
 
 
 /**
@@ -51,7 +52,7 @@
 \warning Do not pick a number greater than 255, since its filling level is
          encoded by a single byte in the code.
 */
-#define SERIAL_INPUT_BUFFER_SIZE  200
+#define SERIAL_INPUT_BUFFER_SIZE  256
 
 /**
  * {serial port commands which are related to data processing must
@@ -156,6 +157,11 @@ typedef struct {
     uint8_t fill_level;
     const int maxLen;
 } circBuf_t;
+
+//Needed for injecting udp packets from serial port
+typedef struct {
+   udp_resource_desc_t     desc;  ///< resource descriptor for this module, used to register at UDP stack
+} udp_inject_vars_t;
 
 // admin
 void      openserial_init(void);

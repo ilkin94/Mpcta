@@ -205,15 +205,21 @@ void idmanager_triggerAboutRoot() {
    uint8_t         dodagid[16];
    uint8_t         keyIndex;
    uint8_t*        keyValue;
+
+   //Yadu addition starts
+   uint8_t hardcoded_value[] = {84, 187, 187, 0, 0, 0, 0, 0, 0, 1, 145, 91, 201, 241, 92, 119, 87, 137, 79, 79, 134, 21, 216, 20, 37, 39};
    
-   //=== get command from OpenSerial
-   number_bytes_from_input_buffer = openserial_getInputBuffer(input_buffer,sizeof(input_buffer));
-   if (number_bytes_from_input_buffer!=sizeof(input_buffer)) {
-      openserial_printError(COMPONENT_IDMANAGER,ERR_INPUTBUFFER_LENGTH,
-            (errorparameter_t)number_bytes_from_input_buffer,
-            (errorparameter_t)0);
-      return;
-   };
+   // //=== get command from OpenSerial
+   // number_bytes_from_input_buffer = openserial_getInputBuffer(input_buffer,sizeof(input_buffer));
+   // if (number_bytes_from_input_buffer!=sizeof(input_buffer)) {
+   //    openserial_printError(COMPONENT_IDMANAGER,ERR_INPUTBUFFER_LENGTH,
+   //          (errorparameter_t)number_bytes_from_input_buffer,
+   //          (errorparameter_t)0);
+   //    return;
+   // };
+   //
+   memcpy(input_buffer,hardcoded_value,26);
+   //Yadu addition ends
    
    //=== handle command
    

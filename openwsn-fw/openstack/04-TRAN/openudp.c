@@ -206,7 +206,6 @@ void openudp_receive(OpenQueueEntry_t* msg) {
             break;
       }
    } else {
-      openserial_printf(&msg->payload[0],msg->length,'D');
       msg->l4_sourcePortORicmpv6Type  = msg->payload[0]*256+msg->payload[1];
       msg->l4_destination_port        = msg->payload[2]*256+msg->payload[3];
       packetfunctions_tossHeader(msg,sizeof(udp_ht));
@@ -224,13 +223,14 @@ void openudp_receive(OpenQueueEntry_t* msg) {
    }
 
    if (udp_receive_done_callback_ptr == NULL) {
+      openserial_printf(&msg->payload[0],msg->length,'P'); //Yadhu added
       openserial_printError(COMPONENT_OPENUDP,ERR_UNSUPPORTED_PORT_NUMBER,
                             (errorparameter_t)msg->l4_destination_port,
                             (errorparameter_t)6);
       openqueue_freePacketBuffer(msg);
    } else {
       // forward message to resource
-      udp_receive_done_callback_ptr(msg);  
+      udp_receive_done_callback_ptr(msg);
    }
 }
 
