@@ -52,7 +52,7 @@
 \warning Do not pick a number greater than 255, since its filling level is
          encoded by a single byte in the code.
 */
-#define SERIAL_INPUT_BUFFER_SIZE  256
+#define SERIAL_INPUT_BUFFER_SIZE  512
 
 /**
  * {serial port commands which are related to data processing must

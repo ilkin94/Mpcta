@@ -26,7 +26,7 @@ The superframe reappears over time and can be arbitrarily long.
 #define SCHEDULE_MINIMAL_6TISCH_DEFAULT_SLOTFRAME_HANDLE          0 //id of slotframe
 #define SCHEDULE_MINIMAL_6TISCH_DEFAULT_SLOTFRAME_NUMBER          1 //1 slotframe by default.
 
-#define NUMSERIALRX          3
+#define NUMSERIALRX          4
 
 /*
   NUMSLOTSOFF is the max number of cells that the mote can add into schedule, 
@@ -219,6 +219,10 @@ bool               schedule_getOneCellAfterOffset(
     uint16_t* slotoffset, 
     uint16_t* channeloffset
 );
+
+
+owerror_t          schedule_getInfo(uint8_t scheduleBuf_index, scheduleEntry_t** target);
+
 /**
 \}
 \}

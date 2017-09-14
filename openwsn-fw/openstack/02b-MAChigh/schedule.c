@@ -250,6 +250,23 @@ void  schedule_getSlotInfo(
 }
 
 /**
+ * @brief      {returns the pointer to scheduleEntry_t which contains all the information about the slot}
+ *
+ * @param[in]  scheduleBuf_index  The schedule buffer index(Ranges from zero to maxActiveSlots)
+ * @param      target             pointer to local scheduleEntry_t
+ *
+ * @return     { returns E_SUCCESS if slot found, else E_FAIL }
+ */
+owerror_t schedule_getInfo(uint8_t scheduleBuf_index, scheduleEntry_t** target) {
+   if (scheduleBuf_index < schedule_vars.maxActiveSlots) {
+      *target = &(schedule_vars.scheduleBuf[scheduleBuf_index]);
+      return E_SUCCESS;
+   }
+   *target = NULL;
+   return E_FAIL;
+}
+
+/**
 \brief Get the maximum number of active slots.
 
 \returns maximum number of active slots

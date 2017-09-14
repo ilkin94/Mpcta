@@ -35,8 +35,9 @@ enum control_commands
     GET_NODE_TYPE,          //This is to check whether the node is dagroot or not, This will be useful for python code.
     GET_NEIGHBORS_COUNT,
     GET_NEIGHBORS,
-    ADD_SLOT,
-    REMOVE_SLOT,
+    GET_SCHEDULE,
+    ADD_TX_SLOT,
+    ADD_RX_SLOT,
     DUMP_RADIO_PACKETS
 };
 
@@ -66,7 +67,7 @@ openserial_vars_t openserial_vars;
 
 // uart_buffer rx_buffer = {{0},0};
 // uart_buffer tx_buffer = {{0},0};
-uint8_t bytes_tx_count = 0;
+uint16_t serial_packet_loss_counter = 0;
 
 uint8_t start_frame_flag = 0x7e;
 
@@ -95,6 +96,8 @@ uint8_t send_response_packet(uint8_t *,uint8_t);
 void udp_inject_sendDone(OpenQueueEntry_t* msg, owerror_t error);
 
 void udp_inject_receive(OpenQueueEntry_t* msg);
+
+bool verify_checksum();
 
 
 uint8_t ping_packet[] = {0x14,0x15,0x92,0x00,0x00,0x00,0x00,0x02,0xF1,0x7A,0x55,0x3A, \
@@ -136,8 +139,7 @@ void openserial_init() {
  *              the received command}
  */
 void openserial_startInput() {
-    uint8_t idx_count,packet_len;
-    uint8_t buff_status[] = {1,1,1,1,1,0};
+    uint8_t idx_count;
 
     INTERRUPT_DECLARATION();
     uart_clearTxInterrupts();
@@ -145,57 +147,87 @@ void openserial_startInput() {
     uart_enableInterrupts();       // Enable USCI_A1 TX & RX interrupt
     DISABLE_INTERRUPTS();
 
-    buff_status[5] = rx_buffer.fill_level;
-    if(rx_buffer.fill_level > 190)
-        openserial_printf(buff_status,6,'D');
+    if(rx_buffer.fill_level > SERIAL_INPUT_BUFFER_SIZE-10)
+        openserial_printError(COMPONENT_OPENSERIAL,ERR_INPUT_BUFFER_OVERFLOW,(errorparameter_t)rx_buffer.maxLen,(errorparameter_t)rx_buffer.fill_level);
 
-    //leds_error_toggle();
-    //HERE I NEED TO CLEAR UP THE BUFFER, IF 0X7E IS NOT FOUND IN THE BEGINNING OF THE BUFFER, THEN CHECK FOR BUFFER FILL LEVEL
-    //THIS IS DONE TO MAKE SURE THAT, IF WE LOOSE THE BEGINNING OF THE FRAME DUE TO SCHEDULING, WE HAVE TO THROW AWAY THE PARTIAL FRAME
-    //SITTING IN THE RX BUFFER BECAUSE THIS IS A MALFORMED FRAME.
-    //START PARSING THE FRESH FRAME SO IT SHOULD CONTAIN 0X7E AS THE FIRST BYTE.
-    do
-    {
-        //openserial_printf(&rx_buffer.fill_level,1);
-        if(!circular_buffer_pop(&rx_buffer,&openserial_vars.reqFrame)) 
-        {
-            ENABLE_INTERRUPTS();
-            return;
-        }
-        //openserial_printf("ffff",sizeof("ffff")-1);
-    }while(start_frame_flag != openserial_vars.reqFrame[0] && rx_buffer.fill_level);
-
-    //Here check whether buffer size is filled enough.
-    //TODO: check the buffer fill level without accessing buffer members directly.
-    if(rx_buffer.buffer[rx_buffer.tail] > rx_buffer.fill_level) 
-    {
-        //openserial_printf("buffer isn't full enough\r\n",sizeof("buffer isn't full enough\r\n"));
+label:
+    //Here I am going to loop until buffer becomes empty. Hoping that buffer becomes empty within 15ms time.
+     // while(rx_buffer.fill_level)
+     // {
         //leds_error_toggle();
+        //HERE I NEED TO CLEAR UP THE BUFFER, IF 0X7E IS NOT FOUND IN THE BEGINNING OF THE BUFFER, THEN CHECK FOR BUFFER FILL LEVEL
+        //THIS IS DONE TO MAKE SURE THAT, IF WE LOOSE THE BEGINNING OF THE FRAME DUE TO SCHEDULING, WE HAVE TO THROW AWAY THE PARTIAL FRAME
+        //SITTING IN THE RX BUFFER BECAUSE THIS IS A MALFORMED FRAME.
+        //START PARSING THE FRESH FRAME SO IT SHOULD CONTAIN 0X7E AS THE FIRST BYTE.
+        while(start_frame_flag != rx_buffer.buffer[rx_buffer.tail] && rx_buffer.fill_level)
+        {
+            //openserial_printf(&rx_buffer.fill_level,1);
+            if(circular_buffer_pop(&rx_buffer,&openserial_vars.reqFrame))
+                continue;
+            else //For some reason popping is failed, although buffer level is not zero, Enable the interrupts return from here.
+                goto end;
+        }
+
+        //Here check whether buffer size is filled enough. tail points to 0x7e, tail+1 should point to frame length byte.
+        //Here strictly greater than because 0x7e is excluded.
+        //TODO: check the buffer fill level without accessing buffer members directly.
+        if(rx_buffer.buffer[rx_buffer.tail+1] > rx_buffer.fill_level) 
+        {
+            //openserial_printf("buffer isn't full enough\r\n",sizeof("buffer isn't full enough\r\n"));
+            //leds_error_toggle();
+            //This was a bug earlier, If the buffer level was less, I was not just returning without enabling the interrupts  
+            goto end;
+        }
+        else //We have full frame,Before proceeding for processing, throw away the start flag from the frame.
+            circular_buffer_pop(&rx_buffer,&openserial_vars.reqFrame);
+
+        if(circular_buffer_pop(&rx_buffer,&openserial_vars.reqFrame))
+        {
+            //openserial_printf(openserial_vars.reqFrame,1,'D');
+            //first byte represents the length of the command, parse first byte, number of bytes.
+            for(idx_count = 1; idx_count < openserial_vars.reqFrame[0];idx_count++)
+                circular_buffer_pop(&rx_buffer,openserial_vars.reqFrame+idx_count);
+
+            //Dump the read values for debugging purpose
+            //openserial_printf(openserial_vars.reqFrame,openserial_vars.reqFrame[0],'D');
+            //Here I am going to check the checksum, If its correct then only I process the command else throw away the frame
+            //ENABLE_INTERRUPTS();
+            if(!verify_checksum()) 
+            {
+                //DISABLE_INTERRUPTS();
+                goto label;
+            }
+            //ENABLE_INTERRUPTS();
+            openserial_handleCommands();
+            //DISABLE_INTERRUPTS();
+        }
+     // }
+
+    end:
+        ENABLE_INTERRUPTS();
         return;
-    }
+}
 
-    if(circular_buffer_pop(&rx_buffer,&openserial_vars.reqFrame))
+
+bool verify_checksum()
+{
+    uint16_t calc_chsum,frame_chsum;
+    uint8_t idx = 0;
+    calc_chsum = openserial_vars.reqFrame[0];
+    for(idx = 1;idx<openserial_vars.reqFrame[0]-2;idx++)
+        calc_chsum += openserial_vars.reqFrame[idx];
+    memcpy(&frame_chsum,&openserial_vars.reqFrame[idx],2);
+    if(calc_chsum != frame_chsum)
     {
-        //openserial_printf(openserial_vars.reqFrame,1,'D');
-        //first byte represents the length of the command, parse first byte, number of bytes.
-        for(idx_count = 1; idx_count < openserial_vars.reqFrame[0];idx_count++)
-            circular_buffer_pop(&rx_buffer,openserial_vars.reqFrame+idx_count);
-
-        //Dump the read values for debugging purposes
-        //openserial_printf(openserial_vars.reqFrame,openserial_vars.reqFrame[0],'D');
-        openserial_handleCommands();
-        //leds_error_off();
+        serial_packet_loss_counter++;
+        openserial_printf(&serial_packet_loss_counter,2,'E');
+        return FALSE;
     }
-    ENABLE_INTERRUPTS();
+    return TRUE;
 }
 
 void openserial_startOutput() {
     uint8_t data = NULL;
-
-    uint8_t buff_status[] = {0,0,0,0,0,0};
-    buff_status[5] = tx_buffer.fill_level;
-    if(tx_buffer.fill_level > 190)
-        openserial_printf(buff_status,6,'D');
 
     INTERRUPT_DECLARATION();
     //=== flush TX buffer,
@@ -262,8 +294,13 @@ uint8_t openserial_handleCommands(void) {
 }
 
 uint8_t handle_control_commands() {
-    uint8_t nbr_count,index,nbr_list[40],node_type = FALSE;
+    uint8_t nbr_count,index,nbr_list[40],slots[5] = {0,0,0,0,0},node_type = FALSE,slotframeID;
+    uint16_t maxActiveSlots = 0,i = 0;
+    bool     foundNeighbor;
     neighborRow_t* neighbor;
+    open_addr_t nbr;
+    scheduleEntry_t* sE;
+    cellInfo_ht  celllist_add[CELLLIST_MAX_LEN];
     switch(openserial_vars.reqFrame[2]) 
     {
         case SET_DAG_ROOT:             //0 corresponds to set dagroot command.
@@ -286,11 +323,89 @@ uint8_t handle_control_commands() {
             }
             send_response_packet(nbr_list,nbr_count*8);
             break;
+        case GET_SCHEDULE:
+            maxActiveSlots = schedule_getMaxActiveSlots();
+            slotframeID = schedule_getFrameHandle();
+            for(i = 0;i<maxActiveSlots;i++)
+            {
+                if (schedule_getInfo((uint8_t)i, &sE) == E_FAIL)
+                {
+                    openserial_printf("schedule error",sizeof("schedule error")-1,'E');
+                    return E_FAIL;
+                }
+                else
+                {
+                    if(sE->type == CELLTYPE_TX)
+                        slots[0]++;
+                    else if(sE->type == CELLTYPE_RX)
+                        slots[1]++;
+                    else if(sE->type == CELLTYPE_TXRX)
+                        slots[2]++;
+                    else if(sE->type == CELLTYPE_SERIALRX)
+                        slots[3]++;
+                    else if(sE->type == CELLTYPE_OFF)
+                        slots[4]++;
+                }
+            }
+            send_response_packet(slots,5);
+            break;
+        case ADD_TX_SLOT:
+            foundNeighbor = icmpv6rpl_getPreferredParentEui64(&nbr);
+
+            //neighbor nout found
+            if (foundNeighbor==FALSE)
+                return E_FAIL;
+
+            if (sixtop_setHandler(SIX_HANDLER_SF0)==FALSE)
+                return E_FAIL;// one sixtop transcation is happening, only one instance at one time
+
+            //To check whether the slots available
+            if(sf0_candidateAddCellList(celllist_add,1)==FALSE)
+                return E_FAIL;
+
+            sixtop_request(
+                IANA_6TOP_CMD_ADD,                  // code
+                &nbr,                          // neighbor
+                1,                                  // number cells
+                LINKOPTIONS_TX,                     // cellOptions
+                celllist_add,                       // celllist to add
+                NULL,                               // celllist to delete (not used)
+                sf0_getsfid(),                      // sfid
+                0,                                  // list command offset (not used)
+                0                                   // list command maximum celllist (not used)
+            );
+            break;
+        case ADD_RX_SLOT:
+            foundNeighbor = icmpv6rpl_getPreferredParentEui64(&nbr);
+
+            if (foundNeighbor==FALSE)
+                return E_FAIL;
+
+            if (sixtop_setHandler(SIX_HANDLER_SF0)==FALSE)
+                return E_FAIL;// one sixtop transcation is happening, only one instance at one time
+
+            //To check whether the slots available
+            if(sf0_candidateAddCellList(celllist_add,1)==FALSE)
+                return E_FAIL;
+
+            sixtop_request(
+                IANA_6TOP_CMD_ADD,                  // code
+                &nbr,                          // neighbor
+                1,                                  // number cells
+                LINKOPTIONS_RX,                     // cellOptions
+                celllist_add,                       // celllist to add
+                NULL,                               // celllist to delete (not used)
+                sf0_getsfid(),                      // sfid
+                0,                                  // list command offset (not used)
+                0                                   // list command maximum celllist (not used)
+            );
+            break;
     }
 }
 
 uint8_t handle_data_commands() {
-    switch(openserial_vars.reqFrame[2]) {
+    switch(openserial_vars.reqFrame[2])
+    {
         case 0:         //0 corresponds to UDP packet so inject udp packet
         inject_udp_packet();
         //leds_error_toggle();
@@ -373,14 +488,14 @@ void udp_inject_receive(OpenQueueEntry_t* pkt) {
 
 uint8_t openserial_getInputBufferFilllevel()
 {
-    return openserial_vars.reqFrame[0]-3;
+    return openserial_vars.reqFrame[0]-5;
 }
 
 uint8_t openserial_getInputBuffer(uint8_t* bufferToWrite, uint8_t maxNumBytes)
 {
     //openserial_printf(openserial_vars.reqFrame+3,openserial_vars.reqFrame[0]-3,'D');
-    memcpy(bufferToWrite,openserial_vars.reqFrame+3,openserial_vars.reqFrame[0]-3);
-    return openserial_vars.reqFrame[0]-3;
+    memcpy(bufferToWrite,openserial_vars.reqFrame+3,openserial_vars.reqFrame[0]-5);
+    return openserial_vars.reqFrame[0]-5;
 }
 
 //=========================== interrupt handlers ==============================
@@ -547,10 +662,12 @@ owerror_t openserial_printError(
     errorparameter_t    arg2
 ) {
     //Disabled
-    uint8_t buff[] = {9,9,9,0,0};
-    buff[3] = calling_component;
-    buff[4] = error_code;
-    openserial_printf(buff,5,'E');
+    uint8_t buff[] = {0,0,0,0,0,0};
+    buff[0] = calling_component;
+    buff[1] = error_code;
+    memcpy(buff+2,&arg1,2);
+    memcpy(buff+4,&arg2,2);
+    openserial_printf(buff,6,'E');
     return E_SUCCESS;
 }
 

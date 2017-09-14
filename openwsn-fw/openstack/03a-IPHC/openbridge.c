@@ -46,6 +46,13 @@ void openbridge_triggerData() {
          return;
       }
 
+      //Yadhu added starts
+      //openserial_printf(&input_buffer,numDataBytes,'D');
+      //Just returning from here to test whether the uncorrupted packets are entering
+      //openqueue_freePacketBuffer(pkt);
+      //return;
+      //Yadhu added ends
+
       //admin
       pkt->creator  = COMPONENT_OPENBRIDGE;
       pkt->owner    = COMPONENT_OPENBRIDGE;
