@@ -10,15 +10,12 @@ UDP_IP = "127.0.0.1"                 # Symbolic name meaning all available inter
 UDP_PORT = 5005              # Arbitrary non-privileged port
 s = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
 
-counter = 0
-
 try:
     while True:
-        counter = counter+1
-        message = 100.0
-        print "sending data: "+str(message)
-        s.sendto(struct.pack('f',message), (UDP_IP, UDP_PORT))
+        message = 100
+        millis = int(round(time.time() * 1000))
+        print "sending data: "+str(message) +" time: "+str(millis)
+        s.sendto(str(message), (UDP_IP, UDP_PORT))
         time.sleep(0.1)
-        
 except KeyboardInterrupt:
     exit()

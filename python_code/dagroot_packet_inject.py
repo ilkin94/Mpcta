@@ -18,6 +18,14 @@ command_get_neighbor_count = bytearray([0x7e,0x03,0x43,0x02])
 
 command_get_neighbors = bytearray([0x7e,0x03,0x43,0x03])
 
+command_get_schedule = bytearray([0x7e,0x03,0x43,0x04])
+
+command_add_tx_slot = bytearray([0x7e,0x03,0x43,0x05])
+
+command_add_rx_slot = bytearray([0x7e,0x03,0x43,0x06])
+
+command_get_buff_stat = bytearray([0x7e,0x03,0x43,0xff])
+
 command_inject_udp_packet = bytearray([0x7e,0x03,0x44,0x00])
 
 ping_packet = bytearray([0x14,0x15,0x92,0x0,0x0,0x0,0x0,0x2,0xf1,0x7a,0x55,0x3a,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x1,0x14,0x15,0x92,0x0,0x0,0x0,0x0,0x2,
@@ -28,8 +36,10 @@ ping_packet = bytearray([0x14,0x15,0x92,0x0,0x0,0x0,0x0,0x2,0xf1,0x7a,0x55,0x3a,
 ipv6_ping_packet  = [0x60,0x9,0xbe,0x7b,0x0,0x12,0x3a,0x40,0xbb,0xbb,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x1,0xbb,0xbb,0x0,0x0,0x0,0x0,0x0,0x0,0x14,0x15,0x92,0x0,0x0,0x0,0x0,0x2,
 0x80,0x0,0x3b,0x3d,0xb,0x9d,0x6,0x60,0x0,0x1,0x2,0x3,0x4,0x5,0x6,0x7,0x8,0x9]
 
-ipv6_udp_packet =   [0x60,0x00,0x00,0x00,0x0,0x12,0x11,0x40,0xbb,0xbb,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x1,0xbb,0xbb,0x0,0x0,0x0,0x0,0x0,0x0,0x14,0x15,0x92,0x0,0x0,0x0,0x0,0x2,
-0x80,0x0,0x3b,0x3d,0xb,0x9d,0x6,0x60,0x0,0x1,0x2,0x3,0x4,0x5,0x6,0x7,0x8,0x9]
+ipv6_udp_packet =   [0x60,0xe,0x30,0x93,0x0,0xb,0x11,0x40,0xbb,0xbb,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x1,0xbb,0xbb,0x0,0x0,0x0,0x0,0x0,0x0,0x14,0x15,0x92,0x0,0x0,0x0,0x0,0x2,
+0xa7,0x64,0xf0,0xb2,0x0,0xb,0xe8,0x34,0x31,0x30,0x30]
+
+lowpan_udp_packet = [0xf1,0x7a,0x55,0x11,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x1,0x14,0x15,0x92,0x0,0x0,0x0,0x0,0x2,0xd5,0x9c,0xf0,0xb2,0x0,0xb,0xba,0xc8,0x31,0x30,0x30]
 
 
 outputBufLock   = False
@@ -37,8 +47,6 @@ outputBufLock   = False
 outputBuf       = ''
 
 isDAGRoot       = False
-
-isDAOReceived   = False
 
 RoutingInstanceLock    = False
 
@@ -90,9 +98,11 @@ class moteProbe(threading.Thread):
             global outputBuf
             global outputBufLock
             if (len(outputBuf) > 0) and not outputBufLock:
+                outputBufLock = True
                 self.serial.write(outputBuf)
-                #print ':'.join('{:02x}'.format(x) for x in outputBuf)
+                print "injecting: "+':'.join('{:02x}'.format(x) for x in outputBuf[1:])
                 outputBuf = ''
+                outputBufLock = False
 
             try:
                 self.rxByte = self.serial.read(1)
@@ -104,7 +114,7 @@ class moteProbe(threading.Thread):
                     continue
             except Exception as err:
                 print err
-                time.sleep(1)
+                #time.sleep(0.1)
                 break
             else:
                 if self.busyReceiving and (int(binascii.hexlify(self.prevByte),16) == 0x7e):
@@ -123,13 +133,13 @@ class moteProbe(threading.Thread):
             print "received packet: "+":".join("{:02x}".format(ord(c)) for c in self.inputBuf[2:])
             data = [int(binascii.hexlify(x),16) for x in self.inputBuf]
             data_tuple = self.parser_data.parseInput(data[2:])
-            global isDAOReceived
-            if not isDAOReceived:
-             isDAOReceived = self.routing_instance.meshToLbr_notify(data_tuple)
+            self.routing_instance.meshToLbr_notify(data_tuple)
         elif self.inputBuf[1] == 'D':
             print "debug msg: "+":".join("{:02x}".format(ord(c)) for c in self.inputBuf[2:])
         elif self.inputBuf[1] == 'R':
             print "command response: "+":".join("{:02x}".format(ord(c)) for c in self.inputBuf[2:])
+        elif self.inputBuf[1] == 'E':
+            print "error msg: "+":".join("{:02x}".format(ord(c)) for c in self.inputBuf[2:])
         self.inputBuf = ''
         
     def _process_packet(self,packet):
@@ -210,6 +220,17 @@ class SocketThread(threading.Thread):
 
 SendPacketMode = False
 
+
+def checkSumCalc(pkt):
+    p = sum(pkt)
+    result = [0,0]
+    #Following little endian because it becomes easy in C to convert to value.
+    result[1] = p >> 8
+    result[0] = p & 0xff
+    #print "checksum: "+':'.join('{:02x}'.format(x) for x in result)
+    return bytearray(result)
+
+
 if __name__=="__main__":
     moteProbe_object    = moteProbe('/dev/ttyUSB0')
     test                = UDPPacket() 
@@ -227,6 +248,9 @@ if __name__=="__main__":
     print "  root to make mote DAGroot"
     print "  inject to inject packet"
     print "  ipv6 to inject one packet"
+    print "  sch to get mote schedule"
+    print "  tx to add tx slot"
+    print "  rx to add rx slot"
     print "  quit to exit "
     
     try:
@@ -237,8 +261,10 @@ if __name__=="__main__":
             if cmd == "root":
                 print "sending set DAG root command"
                 sys.stdout.flush()
+                command_set_dagroot[1] = len(command_set_dagroot)-1 + 2 #excluding 0x7e and including 2 byte checksum in the len
+                chsum = checkSumCalc(command_set_dagroot[1:]) #Excluding 0x7e for checksum calculation
                 outputBufLock = True
-                outputBuf += command_set_dagroot;
+                outputBuf += command_set_dagroot + chsum;
                 outputBufLock  = False
             elif cmd=="inject":
                 print "Entering packet inject mode"
@@ -254,40 +280,75 @@ if __name__=="__main__":
                     print "Unable to inject packet"
                     continue
                 str_lowpanbytes = ''.join(chr(i) for i in lowpan_packet[0]+lowpan_packet[1])
-                str_lowpanbytes = bytearray(str_lowpanbytes)
-                print ':'.join('{:02x}'.format(x) for x in str_lowpanbytes)
+                print "injecting: "+":".join("{:02x}".format(ord(c)) for c in str_lowpanbytes)
 
                 outputBufLock = True
                 command_inject_udp_packet[1] = len(command_inject_udp_packet) + len(str_lowpanbytes)-1; #Here subtracting one because 0x7e is not included in the length
-                outputBuf += command_inject_udp_packet+str_lowpanbytes;
+                outputBuf += bytearray(str(command_inject_udp_packet)+str_lowpanbytes)
+                outputBufLock  = False
+            elif cmd == "sch":
+                print "sending get schedule command"
+                sys.stdout.flush()
+                command_get_schedule[1] = len(command_get_schedule)-1 + 2 #excluding 0x7e and including 2 byte checksum in the len
+                chsum = checkSumCalc(command_get_schedule[1:]) #Excluding 0x7e for checksum calculation
+                outputBufLock = True
+                outputBuf += command_get_schedule + chsum;
+                outputBufLock  = False
+            elif cmd == "tx":
+                print "sending add tx slot command"
+                sys.stdout.flush()
+                command_add_tx_slot[1] = len(command_add_tx_slot)-1 + 2 #excluding 0x7e and including 2 byte checksum in the len
+                chsum = checkSumCalc(command_add_tx_slot[1:]) #Excluding 0x7e for checksum calculation
+                outputBufLock = True
+                outputBuf += command_add_tx_slot + chsum;
+                outputBufLock  = False
+            elif cmd == "rx":
+                print "sending add rx slot command"
+                sys.stdout.flush()
+                command_add_rx_slot[1] = len(command_add_rx_slot)-1 + 2 #excluding 0x7e and including 2 byte checksum in the len
+                chsum = checkSumCalc(command_add_rx_slot[1:]) #Excluding 0x7e for checksum calculation
+                outputBufLock = True
+                outputBuf += command_add_rx_slot + chsum;
                 outputBufLock  = False
             elif cmd == "quit":
                 print "exiting"
                 break;
+            else:
+                print "getting buff status"
+                sys.stdout.flush()
+                outputBufLock = True
+                outputBuf += command_get_buff_stat;
+                outputBufLock  = False
             while(SendPacketMode):
-                    try:
-                        data, addr = socket_handler.recvfrom(4)
-                    except socket.timeout:
-                        print "timeout exception"
-                        continue
-                    except KeyboardInterrupt:
-                        moteProbe_object.close()
-                        exit()
+                    #try:
+                        #data, addr = socket_handler.recvfrom(3)
+                    #except socket.timeout:
+                        #print "timeout exception"
+                        #continue
+                    #except KeyboardInterrupt:
+                        #moteProbe_object.close()
+                        #exit()
+                    data = "100"
                     sys.stdout.flush()
                     test.setData(data)
                     tmp = test.getPacket()
+                    #print "ipv6: "+':'.join(hex(i) for i in tmp)
                     lowpan_packet = moteProbe_object.routing_instance.convert_to_iphc(tmp)
                     if lowpan_packet is None:
+                        #This happens when we don't have a route to the mote
                         print "Unable to inject packet"
                         continue
+                    #str_lowpanbytes = lowpan_udp_packet
                     str_lowpanbytes = ''.join(chr(i) for i in lowpan_packet[0]+lowpan_packet[1])
-                    str_lowpanbytes = bytearray(str_lowpanbytes)
-                    print "injecting: " + ':'.join('{:02x}'.format(x) for x in str_lowpanbytes)
+                    #Here subtracting one because 0x7e is not included in the length, Adding to two to include checksum bytes.
+                    command_inject_udp_packet[1] = len(command_inject_udp_packet) + len(str_lowpanbytes)-1 + 2;
+                    #Here I will calculate 16-bit checksum for the whole packet then, I will attach it to end of the packet.
+                    chsum = checkSumCalc(bytearray(str(command_inject_udp_packet[1:])+str_lowpanbytes))
                     if not outputBufLock:
                         outputBufLock = True
-                        command_inject_udp_packet[1] = len(command_inject_udp_packet) + len(str_lowpanbytes)-1; #Here subtracting one because 0x7e is not included in the length
-                        outputBuf += command_inject_udp_packet+str_lowpanbytes;
+                        outputBuf += bytearray(str(command_inject_udp_packet)+str_lowpanbytes+str(chsum))
                         outputBufLock  = False
+                    time.sleep(0.05)
     except KeyboardInterrupt:
         #socketThread_object.close()
         moteProbe_object.close()
@@ -297,7 +358,6 @@ if __name__=="__main__":
     #socketThread_object.close()
     exit()
     
-
 #if __name__=="__main__":
     #moteProbe_object    = moteProbe('/dev/ttyUSB0')
     #test                = UDPPacket() 

@@ -17,6 +17,14 @@ command_get_neighbors = bytearray([0x7e,0x03,0x43,0x02])
 
 command_inject_udp_packet = bytearray([0x7e,0x03,0x44,0x00])
 
+command_get_schedule = bytearray([0x7e,0x03,0x43,0x04])
+
+command_add_tx_slot = bytearray([0x7e,0x03,0x43,0x05])
+
+command_add_rx_slot = bytearray([0x7e,0x03,0x43,0x06])
+
+command_get_buff_stat = bytearray([0x7e,0x03,0x43,0xff])
+
 #this is just a temporary hardcoded data, has to be read from
 #sockets later
 udp_packet_data = "200"
@@ -74,9 +82,9 @@ class moteProbe(threading.Thread):
             global outputBuf
             global outputBufLock
             if (len(outputBuf) > 0) and not outputBufLock:
+                print "injecting: "+':'.join('{:02x}'.format(x) for x in outputBuf[1:])
                 self.serial.write(outputBuf)
                 outputBuf = ''
-
             try:
                 self.rxByte = self.serial.read(1)
                 if not self.rxByte:
@@ -102,18 +110,14 @@ class moteProbe(threading.Thread):
                         self.busyReceiving = False
                         self._process_inputbuf()
     def _process_inputbuf(self):
-        print type(self.inputBuf)
         if self.inputBuf[1].upper() == 'P':
             print "received packet: "+":".join("{:02x}".format(ord(c)) for c in self.inputBuf[2:])
-            data = [int(binascii.hexlify(x),16) for x in self.inputBuf]
-            data_tuple = self.parser_data.parseInput(data[2:])
-            global isDAOReceived
-            if not isDAOReceived:
-             isDAOReceived = self.routing_instance.meshToLbr_notify(data_tuple)
         elif self.inputBuf[1] == 'D':
             print "debug msg: "+":".join("{:02x}".format(ord(c)) for c in self.inputBuf[2:])
         elif self.inputBuf[1] == 'R':
             print "command response: "+":".join("{:02x}".format(ord(c)) for c in self.inputBuf[2:])
+        elif self.inputBuf[1] == 'E':
+            print "error msg: "+":".join("{:02x}".format(ord(c)) for c in self.inputBuf[2:])
         self.inputBuf = ''
 
     def _process_packet(self,packet):
@@ -185,13 +189,34 @@ class SocketThread(threading.Thread):
 
 SendPacketMode = False
 
+
+def checkSumCalc(pkt):
+    p = sum(pkt)
+    result = [0,0]
+    #Following little endian because it becomes easy in C to convert to value.
+    result[1] = p >> 8
+    result[0] = p & 0xff
+    #print "checksum: "+':'.join('{:02x}'.format(x) for x in result)
+    return bytearray(result)
+
 if __name__=="__main__":
     moteProbe_object    = moteProbe('/dev/ttyUSB1')
     print "Interactive mode. Commands:"
     print "  root to make mote DAGroot"
     print "  inject to inject packet"
     print "  ipv6 to inject one packet"
+    print "  sch to get mote schedule"
+    print "  tx to add tx slot"
+    print "  rx to add rx slot"
     print "  quit to exit "
+    
+    UDP_IP = "127.0.0.1"
+    UDP_PORT = 5006
+    
+    socket_handler = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
+    socket_handler.bind((UDP_IP, UDP_PORT))
+    #Setting timeout as five seconds
+    socket_handler.settimeout(15)
     
     try:
         while(1):
@@ -201,8 +226,10 @@ if __name__=="__main__":
             if cmd == "root":
                 print "sending set DAG root command"
                 sys.stdout.flush()
+                command_set_dagroot[1] = len(command_set_dagroot)-1 + 2 #excluding 0x7e and including 2 byte checksum in the len
+                chsum = checkSumCalc(command_set_dagroot[1:]) #Excluding 0x7e for checksum calculation
                 outputBufLock = True
-                outputBuf += command_set_dagroot;
+                outputBuf += command_set_dagroot + chsum;
                 outputBufLock  = False
             elif cmd=="inject":
                 print "Entering packet inject mode"
@@ -216,19 +243,51 @@ if __name__=="__main__":
                 command_inject_udp_packet[1] = len(command_inject_udp_packet) + len(udp_packet_data)-1;
                 outputBuf += command_inject_udp_packet+udp_packet_data;
                 outputBufLock  = False
+            elif cmd == "sch":
+                print "sending get schedule command"
+                sys.stdout.flush()
+                command_get_schedule[1] = len(command_get_schedule)-1 + 2 #excluding 0x7e and including 2 byte checksum in the len
+                chsum = checkSumCalc(command_get_schedule[1:]) #Excluding 0x7e for checksum calculation
+                outputBufLock = True
+                outputBuf += command_get_schedule + chsum;
+                outputBufLock  = False
+            elif cmd == "tx":
+                print "sending add tx slot command"
+                sys.stdout.flush()
+                command_add_tx_slot[1] = len(command_add_tx_slot)-1 + 2 #excluding 0x7e and including 2 byte checksum in the len
+                chsum = checkSumCalc(command_add_tx_slot[1:]) #Excluding 0x7e for checksum calculation
+                outputBufLock = True
+                outputBuf += command_add_tx_slot + chsum;
+                outputBufLock  = False
+            elif cmd == "rx":
+                print "sending add rx slot command"
+                sys.stdout.flush()
+                command_add_rx_slot[1] = len(command_add_rx_slot)-1 + 2 #excluding 0x7e and including 2 byte checksum in the len
+                chsum = checkSumCalc(command_add_rx_slot[1:]) #Excluding 0x7e for checksum calculation
+                outputBufLock = True
+                outputBuf += command_add_rx_slot + chsum;
+                outputBufLock  = False
             elif cmd == "quit":
                 print "exiting"
                 sys.stdout.flush()
                 break;
             while(SendPacketMode):
-                    a = 200
-                    print "sending: "+str(a)
-                    sys.stdout.flush()
-                    outputBufLock = True
-                    command_inject_udp_packet[1] = len(command_inject_udp_packet) + len(str(a))-1;
-                    outputBuf += command_inject_udp_packet+str(a)
-                    outputBufLock  = False
-                    time.sleep(1)
+                try:
+                    a, addr = socket_handler.recvfrom(4)
+                except socket.timeout:
+                    print "timeout exception"
+                    continue
+                except KeyboardInterrupt:
+                    moteProbe_object.close()
+                    exit()
+                #a = 200
+                print "sending: "+str(a)
+                temp = str(a)
+                sys.stdout.flush()
+                outputBufLock = True
+                command_inject_udp_packet[1] = len(command_inject_udp_packet) + len(str(a))-1;
+                outputBuf += bytearray(str(command_inject_udp_packet)+temp)
+                outputBufLock  = False
     except KeyboardInterrupt:
         #socketThread_object.close()
         moteProbe_object.close()

@@ -159,7 +159,7 @@ class Routing():
         ipv6dic = self.lowpan_to_ipv6(data)
 
         #read next header
-        print ipv6dic
+        #print ipv6dic
         if ipv6dic['next_header']==self.IANA_IPv6HOPHEADER:
             #hop by hop header present, check flags and parse
             if (ipv6dic['hop_flags'] & self.O_FLAG) == self.O_FLAG:
@@ -189,7 +189,6 @@ class Routing():
             ipv6dic['flow_label'] = ipv6dic_inner['flow_label']
 
         if ipv6dic['next_header']==self.IANA_ICMPv6:
-            print "ICMPv6 packet"
             #icmp header
             if len(ipv6dic['payload'])<5:
                 print "wrong payload lenght on ICMPv6 packet {0}".format(",".join(str(c) for c in data))
@@ -205,7 +204,7 @@ class Routing():
         elif ipv6dic['next_header']==self.IANA_UDP:
             print "UDP packet ipv6 format"
             print ':'.join(str(hex(i)) for i in self.reassemble_ipv6_packet(ipv6dic))
-            return
+            return False
         #Only if the RPL type is RPL Control i.e first byte is 155, then only it is DAO otherwise it might echo reply
         #process only if the packet DAO
         if(ipv6dic['icmpv6_type'] == 0x9b):
@@ -567,7 +566,6 @@ class Routing():
         return self.parents
         
     def clearNodeTimeout(self):
-        print "Clearing the nodes after timeout"
         threshold = time.time() - self.NODE_TIMEOUT_THRESHOLD
         for node in self.parentsLastSeen.keys():
             if self.parentsLastSeen[node] < threshold:

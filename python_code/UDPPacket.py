@@ -6,16 +6,16 @@ class UDPPacket:
     d = {}
     
     d['tc']     = 0x0 #8bits
-    d['fl']     = 0x0 #20 bits
+    d['fl']     = 0x0 #20 bits Setting flow label as zero always
     d['plen']   = 0x0 #16 bits
-    d['nh']     = 17  #Indicates next hop, UDP 8bits
+    d['nh']     = 17  #Indicates next header, i.e UDP 8bits
     d['hl']     = 0x40 # 8 bits hop limit
     #Default address values
     d['src']    = bytearray([0xbb,0xbb,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x1])        #Source address 128 bits
     d['dst']    = bytearray([0xbb,0xbb,0x0,0x0,0x0,0x0,0x0,0x0,0x14,0x15,0x92,0x0,0x0,0x0,0x0,0x2])     #Destination address
     
     #IPv6 payload, In otherwords UDP part
-    d['sport']  = 61618 #Source port of UDP     2 bytes
+    d['sport']  = 59762 #Source port of UDP     2 bytes
     d['dport']  = 61618 #Destination port UDP   2 bytes
     d['len']    = 0x12  #UDP Payload Length     2 bytes
     d['chsum']  = 0x00  #Checksum this field is optional so making 0x00
@@ -24,7 +24,7 @@ class UDPPacket:
     #In this function passed values are included in the UDP packet 
     def __init__(self,source=bytearray([0xbb,0xbb,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x1]),
         dst=bytearray([0xbb,0xbb,0x0,0x0,0x0,0x0,0x0,0x0,0x14,0x15,0x92,0x0,0x0,0x0,0x0,0x2]),
-        sourceport=61618,dport=61618,data="Yadhunandana"):
+        sourceport=59762,dport=61618,data="Yadhunandana"):
             #update the dictionary values
             self.d['src'] = source
             self.d['dst'] = dst
@@ -33,16 +33,16 @@ class UDPPacket:
             tmp.extend(data)
             
             self.d['data'] = tmp
-            self.d['plen'] = len(self.d['data'])+2+2+2+2 #Data len, 2 bytes for each port number,2 bytes checksum,2 bytes length
-            self.d['len'] = len(self.d['data'])
+            self.d['plen'] = len(self.d['data'])+8 #Data len, 2 bytes for each port number,2 bytes checksum,2 bytes length
+            self.d['len'] = len(self.d['data'])+8
     
     def setData(self,data):
         
         tmp = bytearray()
         tmp.extend(data)
         self.d['data'] = tmp
-        self.d['plen'] = len(self.d['data'])+2+2+2+2 #Data len, 2 bytes for each port number,2 bytes checksum,2 bytes length
-        self.d['len'] = len(self.d['data'])
+        self.d['plen'] = len(self.d['data'])+8 #Data len, 2 bytes for each port number,2 bytes checksum,2 bytes length
+        self.d['len'] = len(self.d['data'])+8
         
     def setSrc_and_Dest(self,source,dst):
         self.d['src'] = source
@@ -71,8 +71,8 @@ class UDPPacket:
         pktw.append(self.d['chsum'])
         pktw.append(self.d['chsum'])
         
-        for i in range(0,self.d['len']):
-            pktw.append( (self.d['data'][i]) )
+        for i in range(0,len(self.d['data'])):
+            pktw.append( (self.d['data'][i]))
         
         return  pktw
         #udp_bytearray = ''.join([chr(c) for c in pktw])
