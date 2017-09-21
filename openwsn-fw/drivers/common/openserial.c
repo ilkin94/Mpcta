@@ -524,20 +524,12 @@ uint8_t circular_buffer_push(circBuf_t *buffer_ptr,uint8_t dataValue)
 
 uint8_t circular_buffer_pop(circBuf_t *buffer_ptr,uint8_t *data)
 {
+    uint8_t next;
     // if the head isn't ahead of the tail, we don't have any characters
-    if (buffer_ptr->head == buffer_ptr->tail)      // check if circular buffer is empty.
-    {
-        if(buffer_ptr == &rx_buffer)
-            openserial_printError(COMPONENT_OPENSERIAL,ERR_INPUT_BUFFER_EMPTY, \
-                (errorparameter_t)0,(errorparameter_t)buffer_ptr->fill_level);
-        else
-            openserial_printError(COMPONENT_OPENSERIAL,ERR_OUTPUT_BUFFER_EMPTY,\
-                (errorparameter_t)1,(errorparameter_t)tx_buffer.fill_level);
-        data = NULL;
-        return FALSE;           // and return with an error.
-    }
+    if (buffer_ptr->head == buffer_ptr->tail)       // check if circular buffer is empty.
+        return FALSE;                               // and return with an error.
 
-    uint8_t next = buffer_ptr->tail + 1;
+    next = buffer_ptr->tail + 1;
     if(next >= buffer_ptr->maxLen)
         next = 0;
 

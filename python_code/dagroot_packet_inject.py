@@ -24,7 +24,7 @@ command_add_tx_slot = bytearray([0x7e,0x03,0x43,0x05])
 
 command_add_rx_slot = bytearray([0x7e,0x03,0x43,0x06])
 
-command_get_buff_stat = bytearray([0x7e,0x03,0x43,0xff])
+command_reset_board = bytearray([0x7e,0x03,0x43,0x08])
 
 command_inject_udp_packet = bytearray([0x7e,0x03,0x44,0x00])
 
@@ -44,7 +44,7 @@ lowpan_udp_packet = [0xf1,0x7a,0x55,0x11,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x1,0x14,0x
 
 outputBufLock   = False
 
-outputBuf       = ''
+outputBuf       = []
 
 isDAGRoot       = False
 
@@ -66,6 +66,9 @@ class moteProbe(threading.Thread):
         self.dataLock            = threading.Lock()
         self.rxByte              = 0
         self.prevByte            = 0
+        self.prev_packet_time    = 0
+        self.latency             = [0.0,0.0] #Here first element represents prev_latency, and second element represents sample count used to calculate the average latency 
+        self.prev_pkt            = None
         
 
         # flag to permit exit from read loop
@@ -93,16 +96,6 @@ class moteProbe(threading.Thread):
     
     def run(self):
         while self.goOn: # read bytes from serial port
-            #Sending commands to mote
-            #Here I am using global variables
-            global outputBuf
-            global outputBufLock
-            if (len(outputBuf) > 0) and not outputBufLock:
-                outputBufLock = True
-                self.serial.write(outputBuf)
-                print "injecting: "+':'.join('{:02x}'.format(x) for x in outputBuf[1:])
-                outputBuf = ''
-                outputBufLock = False
 
             try:
                 self.rxByte = self.serial.read(1)
@@ -130,18 +123,47 @@ class moteProbe(threading.Thread):
                         self._process_inputbuf()
     def _process_inputbuf(self):
         if self.inputBuf[1].upper() == 'P':
-            print "received packet: "+":".join("{:02x}".format(ord(c)) for c in self.inputBuf[2:])
+            #print "received packet: "+":".join("{:02x}".format(ord(c)) for c in self.inputBuf[2:])
             data = [int(binascii.hexlify(x),16) for x in self.inputBuf]
             data_tuple = self.parser_data.parseInput(data[2:])
-            self.routing_instance.meshToLbr_notify(data_tuple)
+            (result,data) = self.routing_instance.meshToLbr_notify(data_tuple)
+            if not result:
+                if self.prev_pkt  == data[4:]:
+                    print "Duplicate packet"
+                    self.inputBuf = ''
+                    return
+                curr_packet_time = int(round(time.time() * 1000))
+                print "received data: "+':'.join(str(hex(i)) for i in data[4:])+" , Packet Latency: "+str(curr_packet_time-self.prev_packet_time)
+                x = curr_packet_time - self.prev_packet_time
+                self.latency[1] = self.latency[1] + 1.0
+                if self.latency[1] > 1.0:
+                    x = curr_packet_time - self.prev_packet_time
+                    self.running_mean(x)
+                    print "average latency: "+ str(self.latency[0])
+                self.prev_packet_time = curr_packet_time
+                self.prev_pkt = data[4:]
         elif self.inputBuf[1] == 'D':
             print "debug msg: "+":".join("{:02x}".format(ord(c)) for c in self.inputBuf[2:])
         elif self.inputBuf[1] == 'R':
             print "command response: "+":".join("{:02x}".format(ord(c)) for c in self.inputBuf[2:])
         elif self.inputBuf[1] == 'E':
+            print "------------------------------------------------------------------------"
             print "error msg: "+":".join("{:02x}".format(ord(c)) for c in self.inputBuf[2:])
+            print "------------------------------------------------------------------------"
+        elif self.inputBuf[1] == 'S':
+            #Sending commands to mote
+            #Here I am using global variables
+            #print "request frame"
+            global outputBuf
+            global outputBufLock
+            if (len(outputBuf) > 0) and not outputBufLock:
+                outputBufLock = True
+                dataToWrite = outputBuf.pop(0)
+                outputBufLock = False
+                print "injecting: "+":".join("{:02x}".format(ord(c)) for c in dataToWrite)
+                self.serial.write(dataToWrite)
         self.inputBuf = ''
-        
+
     def _process_packet(self,packet):
         print "process_packet_func"
 
@@ -151,9 +173,15 @@ class moteProbe(threading.Thread):
 
     def close(self):
         self.goOn = False
-        
+
     def prepare_UDP_packet(self,payload):
         print "prepare_UDP_packet"
+
+        #Running mean implementation by storing only one element, and sample count
+    def running_mean(self,x):
+        #I have used 300 to make sure that first outlier is rejected, while calculating the average
+        tmp = self.latency[0] * max(self.latency[1]-1,1) + x
+        self.latency[0] = tmp / self.latency[1]
 #End of ModeProbe class definition
 
 
@@ -251,6 +279,7 @@ if __name__=="__main__":
     print "  sch to get mote schedule"
     print "  tx to add tx slot"
     print "  rx to add rx slot"
+    print "  reset to reset the board"
     print "  quit to exit "
     
     try:
@@ -264,7 +293,7 @@ if __name__=="__main__":
                 command_set_dagroot[1] = len(command_set_dagroot)-1 + 2 #excluding 0x7e and including 2 byte checksum in the len
                 chsum = checkSumCalc(command_set_dagroot[1:]) #Excluding 0x7e for checksum calculation
                 outputBufLock = True
-                outputBuf += command_set_dagroot + chsum;
+                outputBuf += [str(command_set_dagroot + chsum)];
                 outputBufLock  = False
             elif cmd=="inject":
                 print "Entering packet inject mode"
@@ -284,7 +313,7 @@ if __name__=="__main__":
 
                 outputBufLock = True
                 command_inject_udp_packet[1] = len(command_inject_udp_packet) + len(str_lowpanbytes)-1; #Here subtracting one because 0x7e is not included in the length
-                outputBuf += bytearray(str(command_inject_udp_packet)+str_lowpanbytes)
+                outputBuf += [str(command_inject_udp_packet)+str_lowpanbytes]
                 outputBufLock  = False
             elif cmd == "sch":
                 print "sending get schedule command"
@@ -292,7 +321,7 @@ if __name__=="__main__":
                 command_get_schedule[1] = len(command_get_schedule)-1 + 2 #excluding 0x7e and including 2 byte checksum in the len
                 chsum = checkSumCalc(command_get_schedule[1:]) #Excluding 0x7e for checksum calculation
                 outputBufLock = True
-                outputBuf += command_get_schedule + chsum;
+                outputBuf += [str(command_get_schedule + chsum)];
                 outputBufLock  = False
             elif cmd == "tx":
                 print "sending add tx slot command"
@@ -300,7 +329,7 @@ if __name__=="__main__":
                 command_add_tx_slot[1] = len(command_add_tx_slot)-1 + 2 #excluding 0x7e and including 2 byte checksum in the len
                 chsum = checkSumCalc(command_add_tx_slot[1:]) #Excluding 0x7e for checksum calculation
                 outputBufLock = True
-                outputBuf += command_add_tx_slot + chsum;
+                outputBuf += [str(command_add_tx_slot + chsum)];
                 outputBufLock  = False
             elif cmd == "rx":
                 print "sending add rx slot command"
@@ -308,17 +337,21 @@ if __name__=="__main__":
                 command_add_rx_slot[1] = len(command_add_rx_slot)-1 + 2 #excluding 0x7e and including 2 byte checksum in the len
                 chsum = checkSumCalc(command_add_rx_slot[1:]) #Excluding 0x7e for checksum calculation
                 outputBufLock = True
-                outputBuf += command_add_rx_slot + chsum;
+                outputBuf += [str(command_add_rx_slot + chsum)];
+                outputBufLock  = False
+            elif cmd == "reset":
+                print "sending reset command"
+                sys.stdout.flush()
+                command_reset_board[1] = len(command_reset_board)-1 + 2 #excluding 0x7e and including 2 byte checksum in the len
+                chsum = checkSumCalc(command_reset_board[1:]) #Excluding 0x7e for checksum calculation
+                outputBufLock = True
+                outputBuf += [str(command_reset_board + chsum)];
                 outputBufLock  = False
             elif cmd == "quit":
                 print "exiting"
                 break;
             else:
-                print "getting buff status"
-                sys.stdout.flush()
-                outputBufLock = True
-                outputBuf += command_get_buff_stat;
-                outputBufLock  = False
+                print "unknown command"
             while(SendPacketMode):
                     #try:
                         #data, addr = socket_handler.recvfrom(3)
@@ -328,9 +361,9 @@ if __name__=="__main__":
                     #except KeyboardInterrupt:
                         #moteProbe_object.close()
                         #exit()
-                    data = "100"
+                    millis = int(round(time.time() * 1000))
                     sys.stdout.flush()
-                    test.setData(data)
+                    test.setData(str(millis))
                     tmp = test.getPacket()
                     #print "ipv6: "+':'.join(hex(i) for i in tmp)
                     lowpan_packet = moteProbe_object.routing_instance.convert_to_iphc(tmp)
@@ -346,9 +379,9 @@ if __name__=="__main__":
                     chsum = checkSumCalc(bytearray(str(command_inject_udp_packet[1:])+str_lowpanbytes))
                     if not outputBufLock:
                         outputBufLock = True
-                        outputBuf += bytearray(str(command_inject_udp_packet)+str_lowpanbytes+str(chsum))
+                        outputBuf += [str(command_inject_udp_packet)+str_lowpanbytes+str(chsum)]
                         outputBufLock  = False
-                    time.sleep(0.05)
+                    time.sleep(0.085)
     except KeyboardInterrupt:
         #socketThread_object.close()
         moteProbe_object.close()

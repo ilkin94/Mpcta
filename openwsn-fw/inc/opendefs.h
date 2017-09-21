@@ -272,7 +272,7 @@ enum {
    ERR_OUTPUT_BUFFER_OVERFLOW          = 0x50, // the output buffer has overflown
    ERR_PKT_INJECT_FAILED               = 0x51, // UDP Packet inject failed
    ERR_INPUT_BUFFER_EMPTY              = 0x52, // openserial input buffer is empty
-   ERR_OUTPUT_BUFFER_EMPTY             = 0x53 // openserial output buffer is empty
+   ERR_OUTPUT_BUFFER_EMPTY             = 0x53  // openserial output buffer is empty
 };
 
 //=========================== typedef =========================================

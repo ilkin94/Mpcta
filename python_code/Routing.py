@@ -203,19 +203,19 @@ class Routing():
             #dispatchSignal=(tuple(ipv6dic['dst_addr']),self.PROTO_ICMPv6,ipv6dic['icmpv6_type'])
         elif ipv6dic['next_header']==self.IANA_UDP:
             print "UDP packet ipv6 format"
-            print ':'.join(str(hex(i)) for i in self.reassemble_ipv6_packet(ipv6dic))
-            return False
+            #print ':'.join(str(hex(i)) for i in self.reassemble_ipv6_packet(ipv6dic))
+            return (False,ipv6dic['payload'])
         #Only if the RPL type is RPL Control i.e first byte is 155, then only it is DAO otherwise it might echo reply
         #process only if the packet DAO
         if(ipv6dic['icmpv6_type'] == 0x9b):
             print "DAO message update parents"
         else:
             print "This icmp message is not DAO return from here"
-            return False
+            return (False,ipv6dic['payload'])
         
         #Calling api's related to RPL
         self._indicateDAO((ipv6dic['src_addr'],ipv6dic['app_payload']))
-        return True
+        return (True,ipv6dic['payload'])
         
     def lowpan_to_ipv6(self,data):
 
