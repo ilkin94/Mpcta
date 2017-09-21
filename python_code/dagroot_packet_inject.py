@@ -381,7 +381,7 @@ if __name__=="__main__":
                         outputBufLock = True
                         outputBuf += [str(command_inject_udp_packet)+str_lowpanbytes+str(chsum)]
                         outputBufLock  = False
-                    time.sleep(0.085)
+                    time.sleep(0.09)
     except KeyboardInterrupt:
         #socketThread_object.close()
         moteProbe_object.close()

@@ -131,8 +131,11 @@ class moteProbe(threading.Thread):
             print "debug msg: "+":".join("{:02x}".format(ord(c)) for c in self.inputBuf[2:])
         elif self.inputBuf[1] == 'R':
             print "command response: "+":".join("{:02x}".format(ord(c)) for c in self.inputBuf[2:])
-        elif self.inputBuf[1] == 'E':
+        elif self.inputBuf[1] == 'E' and not (int(binascii.hexlify(self.inputBuf[3]),16) == 0x09) \
+                and not (int(binascii.hexlify(self.inputBuf[3]),16) == 0x1c) :
+            print "------------------------------------------------------------------------"
             print "error msg: "+":".join("{:02x}".format(ord(c)) for c in self.inputBuf[2:])
+            print "------------------------------------------------------------------------"
         elif self.inputBuf[1] == 'S':
             #Sending commands to mote
             #Here I am using global variables
@@ -336,7 +339,7 @@ if __name__=="__main__":
                     outputBufLock = True
                     outputBuf += [str(command_inject_udp_packet)+temp+str(chsum)]
                     outputBufLock  = False
-                time.sleep(0.085)
+                time.sleep(0.09)
     except KeyboardInterrupt:
         #socketThread_object.close()
         moteProbe_object.close()
