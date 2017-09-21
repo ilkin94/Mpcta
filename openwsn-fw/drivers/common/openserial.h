@@ -44,7 +44,7 @@
 \warning should be exactly 256 so wrap-around on the index does not require
          the use of a slow modulo operator.
 */
-#define SERIAL_OUTPUT_BUFFER_SIZE 256 // leave at 256!
+#define SERIAL_OUTPUT_BUFFER_SIZE 256 // leave at 256! tx buffer of uart
 
 /**
 \brief Number of bytes of the serial input buffer, in bytes.
@@ -52,13 +52,13 @@
 \warning Do not pick a number greater than 255, since its filling level is
          encoded by a single byte in the code.
 */
-#define SERIAL_INPUT_BUFFER_SIZE  512
+#define SERIAL_INPUT_BUFFER_SIZE  256 //is nothing bu rx buffer of uart
 
 /**
  * {serial port commands which are related to data processing must
  * be prefixed by 'D'}
  */
-#define DATA_COMMAND_PREFIX ((uint8_t)'D')
+#define DATA_COMMAND ((uint8_t)'D')
 
 /**
  * {serial port commands which are related to control must
@@ -66,61 +66,26 @@
  */
 #define CONTROL_COMMAND ((uint8_t)'C')
 
-/**
- * { Constants definitions, 127 bytes is the maximum size of 802.15.4 packet
- * Another three bytes are for packet category,command id and payload }
- */
-#define MAX_SERIAL_PAYLOAD_SIZE 129
+#define REQUEST_FRAME ((uint8_t)'S')
 
+
+#define SERIAL_MSG_PKT 'P'
+
+#define SERIAL_MSG_ERR 'E'
+
+#define SERIAL_MSG_DEB 'D'
+
+#define SERIAL_MSG_RSP 'R'
+
+
+#define START_FLAG            0x7E
 
 /// Modes of the openserial module.
-enum {
-   MODE_OFF    = 0, ///< The module is off, no serial activity.
-   MODE_INPUT  = 1, ///< The serial is listening or receiving bytes.
-   MODE_OUTPUT = 2  ///< The serial is transmitting bytes.
-};
-
-// frames sent mote->PC
-#define SERFRAME_MOTE2PC_DATA                    ((uint8_t)'D')
-#define SERFRAME_MOTE2PC_STATUS                  ((uint8_t)'S')
-#define SERFRAME_MOTE2PC_INFO                    ((uint8_t)'I')
-#define SERFRAME_MOTE2PC_ERROR                   ((uint8_t)'E')
-#define SERFRAME_MOTE2PC_CRITICAL                ((uint8_t)'C')
-#define SERFRAME_MOTE2PC_REQUEST                 ((uint8_t)'R')
-#define SERFRAME_MOTE2PC_SNIFFED_PACKET          ((uint8_t)'P')
-
-// frames sent PC->mote
-#define SERFRAME_PC2MOTE_SETROOT                 ((uint8_t)'R')
-#define SERFRAME_PC2MOTE_RESET                   ((uint8_t)'Q')
-#define SERFRAME_PC2MOTE_DATA                    ((uint8_t)'D')
-#define SERFRAME_PC2MOTE_TRIGGERSERIALECHO       ((uint8_t)'S')
-#define SERFRAME_PC2MOTE_COMMAND                 ((uint8_t)'C')
-#define SERFRAME_PC2MOTE_TRIGGERUSERIALBRIDGE    ((uint8_t)'B')
-
-//=========================== typedef =========================================
-
-enum {
-    COMMAND_SET_EBPERIOD          =  0,
-    COMMAND_SET_CHANNEL           =  1,
-    COMMAND_SET_KAPERIOD          =  2,
-    COMMAND_SET_DIOPERIOD         =  3,
-    COMMAND_SET_DAOPERIOD         =  4,
-    COMMAND_SET_DAGRANK           =  5,
-    COMMAND_SET_SECURITY_STATUS   =  6,
-    COMMAND_SET_SLOTFRAMELENGTH   =  7,
-    COMMAND_SET_ACK_STATUS        =  8,
-    COMMAND_SET_6P_ADD            =  9,
-    COMMAND_SET_6P_DELETE         = 10,
-    COMMAND_SET_6P_RELOCATE       = 11,
-    COMMAND_SET_6P_COUNT          = 12,
-    COMMAND_SET_6P_LIST           = 13,
-    COMMAND_SET_6P_CLEAR          = 14,
-    COMMAND_SET_SLOTDURATION      = 15,
-    COMMAND_SET_6PRESPONSE        = 16,
-    COMMAND_SET_UINJECTPERIOD     = 17,
-    COMMAND_SET_ECHO_REPLY_STATUS = 18,
-    COMMAND_SET_JOIN_KEY          = 19,
-    COMMAND_MAX                   = 20,
+enum
+{
+   MODE_OFF,    //< The module is off, no serial activity.
+   MODE_INPUT,  //< The serial is listening or receiving bytes.
+   MODE_OUTPUT  //< The serial is transmitting bytes.
 };
 
 //=========================== variables =======================================
@@ -129,6 +94,7 @@ enum {
 
 typedef void (*openserial_cbt)(void);
 
+//Used by userserial bridge so left as dummy, Not used in openserial module
 typedef struct _openserial_rsvpt {
     uint8_t                       cmdId; ///< serial command (e.g. 'B')
     openserial_cbt                cb;    ///< handler of that command
@@ -138,13 +104,9 @@ typedef struct _openserial_rsvpt {
 typedef struct {
     // admin
     uint8_t             mode;
-    uint8_t             debugPrintCounter;
-    openserial_rsvpt*   registeredCmd;
     // input
-    uint8_t             reqFrame[MAX_SERIAL_PAYLOAD_SIZE];
+    uint8_t             reqFrame[1+1+1];
     uint8_t             reqFrameIdx;
-    uint8_t             lastRxByte;
-    bool                busyReceiving;
 } openserial_vars_t;
 
 /**

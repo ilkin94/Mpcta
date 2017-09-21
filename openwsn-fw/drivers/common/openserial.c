@@ -38,7 +38,8 @@ enum control_commands
     GET_SCHEDULE,
     ADD_TX_SLOT,
     ADD_RX_SLOT,
-    DUMP_RADIO_PACKETS
+    DUMP_RADIO_PACKETS,
+    RESET_BOARD
 };
 
 enum data_commands 
@@ -51,25 +52,10 @@ enum data_commands
 /*
  * Local variables (Variables used within this file)
  */
-typedef struct {
-    uint8_t buffer[10];
-    uint8_t length;
-} uart_buffer;
-
-typedef struct {
-    uint8_t packet_type;
-    uint8_t packet_length;
-    uint8_t payload;
-}serial_packets;
-
 
 openserial_vars_t openserial_vars;
 
-// uart_buffer rx_buffer = {{0},0};
-// uart_buffer tx_buffer = {{0},0};
 uint16_t serial_packet_loss_counter = 0;
-
-uint8_t start_frame_flag = 0x7e;
 
 //Defining transmission buffer for the uart.
 CIRCBUF_DEF(tx_buffer,SERIAL_OUTPUT_BUFFER_SIZE);
@@ -99,11 +85,6 @@ void udp_inject_receive(OpenQueueEntry_t* msg);
 
 bool verify_checksum();
 
-
-uint8_t ping_packet[] = {0x14,0x15,0x92,0x00,0x00,0x00,0x00,0x02,0xF1,0x7A,0x55,0x3A, \
-    0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x01,0x14,0x15,0x92,0x00,0x00,0x00,0x00,0x02,0x80, \
-    0x00,0x28,0x74,0x18,0xBC,0x0C,0x0E,0x00,'Y','A','D','H','U','N','A','N','D'};
-
 static const uint8_t packet_dst_addr[]   = {
    0xbb, 0xbb, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01
@@ -115,6 +96,13 @@ udp_inject_vars_t udp_inject_vars;
 //===== admin
 
 void openserial_init() {
+
+
+    openserial_vars.reqFrame[0] = START_FLAG;
+    openserial_vars.reqFrame[1] = 0x02;             //Length of request frame
+    openserial_vars.reqFrame[2] = REQUEST_FRAME;    //This byte indicates request frame
+    openserial_vars.reqFrameIdx = 0;                //Pointer to request frame bytes sent
+
     // set callbacks
     uart_setCallbacks(
         isr_openserial_tx,
@@ -139,7 +127,6 @@ void openserial_init() {
  *              the received command}
  */
 void openserial_startInput() {
-    uint8_t idx_count;
 
     INTERRUPT_DECLARATION();
     uart_clearTxInterrupts();
@@ -147,88 +134,15 @@ void openserial_startInput() {
     uart_enableInterrupts();       // Enable USCI_A1 TX & RX interrupt
     DISABLE_INTERRUPTS();
 
-    if(rx_buffer.fill_level > SERIAL_INPUT_BUFFER_SIZE-10)
-        openserial_printError(COMPONENT_OPENSERIAL,ERR_INPUT_BUFFER_OVERFLOW,(errorparameter_t)rx_buffer.maxLen,(errorparameter_t)rx_buffer.fill_level);
-
-label:
-    //Here I am going to loop until buffer becomes empty. Hoping that buffer becomes empty within 15ms time.
-     // while(rx_buffer.fill_level)
-     // {
-        //leds_error_toggle();
-        //HERE I NEED TO CLEAR UP THE BUFFER, IF 0X7E IS NOT FOUND IN THE BEGINNING OF THE BUFFER, THEN CHECK FOR BUFFER FILL LEVEL
-        //THIS IS DONE TO MAKE SURE THAT, IF WE LOOSE THE BEGINNING OF THE FRAME DUE TO SCHEDULING, WE HAVE TO THROW AWAY THE PARTIAL FRAME
-        //SITTING IN THE RX BUFFER BECAUSE THIS IS A MALFORMED FRAME.
-        //START PARSING THE FRESH FRAME SO IT SHOULD CONTAIN 0X7E AS THE FIRST BYTE.
-        while(start_frame_flag != rx_buffer.buffer[rx_buffer.tail] && rx_buffer.fill_level)
-        {
-            //openserial_printf(&rx_buffer.fill_level,1);
-            if(circular_buffer_pop(&rx_buffer,&openserial_vars.reqFrame))
-                continue;
-            else //For some reason popping is failed, although buffer level is not zero, Enable the interrupts return from here.
-                goto end;
-        }
-
-        //Here check whether buffer size is filled enough. tail points to 0x7e, tail+1 should point to frame length byte.
-        //Here strictly greater than because 0x7e is excluded.
-        //TODO: check the buffer fill level without accessing buffer members directly.
-        if(rx_buffer.buffer[rx_buffer.tail+1] > rx_buffer.fill_level) 
-        {
-            //openserial_printf("buffer isn't full enough\r\n",sizeof("buffer isn't full enough\r\n"));
-            //leds_error_toggle();
-            //This was a bug earlier, If the buffer level was less, I was not just returning without enabling the interrupts  
-            goto end;
-        }
-        else //We have full frame,Before proceeding for processing, throw away the start flag from the frame.
-            circular_buffer_pop(&rx_buffer,&openserial_vars.reqFrame);
-
-        if(circular_buffer_pop(&rx_buffer,&openserial_vars.reqFrame))
-        {
-            //openserial_printf(openserial_vars.reqFrame,1,'D');
-            //first byte represents the length of the command, parse first byte, number of bytes.
-            for(idx_count = 1; idx_count < openserial_vars.reqFrame[0];idx_count++)
-                circular_buffer_pop(&rx_buffer,openserial_vars.reqFrame+idx_count);
-
-            //Dump the read values for debugging purpose
-            //openserial_printf(openserial_vars.reqFrame,openserial_vars.reqFrame[0],'D');
-            //Here I am going to check the checksum, If its correct then only I process the command else throw away the frame
-            //ENABLE_INTERRUPTS();
-            if(!verify_checksum()) 
-            {
-                //DISABLE_INTERRUPTS();
-                goto label;
-            }
-            //ENABLE_INTERRUPTS();
-            openserial_handleCommands();
-            //DISABLE_INTERRUPTS();
-        }
-     // }
-
-    end:
-        ENABLE_INTERRUPTS();
-        return;
-}
-
-
-bool verify_checksum()
-{
-    uint16_t calc_chsum,frame_chsum;
-    uint8_t idx = 0;
-    calc_chsum = openserial_vars.reqFrame[0];
-    for(idx = 1;idx<openserial_vars.reqFrame[0]-2;idx++)
-        calc_chsum += openserial_vars.reqFrame[idx];
-    memcpy(&frame_chsum,&openserial_vars.reqFrame[idx],2);
-    if(calc_chsum != frame_chsum)
-    {
-        serial_packet_loss_counter++;
-        openserial_printf(&serial_packet_loss_counter,2,'E');
-        return FALSE;
-    }
-    return TRUE;
+    openserial_vars.reqFrameIdx    = 0;
+    openserial_vars.mode = MODE_INPUT;
+    uart_writeByte(openserial_vars.reqFrame[openserial_vars.reqFrameIdx]);
+    ENABLE_INTERRUPTS();
 }
 
 void openserial_startOutput() {
-    uint8_t data = NULL;
 
+    uint8_t data = NULL;
     INTERRUPT_DECLARATION();
     //=== flush TX buffer,
     uart_clearTxInterrupts();
@@ -236,7 +150,7 @@ void openserial_startOutput() {
     uart_enableInterrupts();           // Enable USCI_A1 TX & RX interrupt
 
     DISABLE_INTERRUPTS();
-
+    openserial_vars.mode = MODE_OUTPUT;
     if(circular_buffer_pop(&tx_buffer,&data))
         uart_writeByte(data);
 
@@ -244,12 +158,55 @@ void openserial_startOutput() {
 }
 
 void openserial_stop() {
+    uint16_t buffer_level;
 
-    /**
-     * This function was originally used by openwsn for 
-     * the purpose of processing the received commands
-     * presently kept as stub. does nothing. 
-     */
+    INTERRUPT_DECLARATION();
+    DISABLE_INTERRUPTS();
+    buffer_level = rx_buffer.fill_level;
+    ENABLE_INTERRUPTS();
+
+    // disable UART interrupts
+    uart_disableInterrupts();
+
+    DISABLE_INTERRUPTS();
+    openserial_vars.mode = MODE_OFF;
+    ENABLE_INTERRUPTS();
+
+    if(buffer_level > SERIAL_INPUT_BUFFER_SIZE-1)
+        openserial_printError(COMPONENT_OPENSERIAL,ERR_INPUT_BUFFER_OVERFLOW,(errorparameter_t)rx_buffer.maxLen,(errorparameter_t)rx_buffer.fill_level);
+
+    if(START_FLAG == rx_buffer.buffer[rx_buffer.tail])
+        circular_buffer_pop(&rx_buffer,NULL);
+    if(buffer_level > rx_buffer.buffer[rx_buffer.tail])
+    {
+        //openserial_printf(&rx_buffer.buffer[1],buffer_level-1,'D');
+        //Here I am going to check the checksum, If its correct then only I process the command else throw away the frame
+        if(verify_checksum())
+            openserial_handleCommands();
+    }
+    DISABLE_INTERRUPTS();
+    //Resetting the buffer
+    rx_buffer.head = rx_buffer.tail = 0;
+    rx_buffer.fill_level = 0;
+    ENABLE_INTERRUPTS();
+    return;
+}
+
+bool verify_checksum() {
+    uint16_t calc_chsum,frame_chsum;
+    uint8_t idx = 0;
+    calc_chsum = rx_buffer.buffer[rx_buffer.tail];
+    for(idx = 1;idx<rx_buffer.buffer[rx_buffer.tail]-2;idx++)
+        calc_chsum += rx_buffer.buffer[rx_buffer.tail+idx];
+    memcpy(&frame_chsum,&rx_buffer.buffer[rx_buffer.buffer[rx_buffer.tail]-1],2);
+     if(calc_chsum != frame_chsum)
+     {
+        serial_packet_loss_counter++;
+        openserial_printf(&serial_packet_loss_counter,2,SERIAL_MSG_ERR);
+        //openserial_printf(&calc_chsum,2,'E');
+         return FALSE;
+     }
+    return TRUE;
 }
 
 /**
@@ -266,7 +223,7 @@ uint8_t openserial_printf(char *data_ptr , uint8_t data_len,uint8_t type) {
 
     DISABLE_INTERRUPTS();
 
-    if(!circular_buffer_push(&tx_buffer,start_frame_flag))
+    if(!circular_buffer_push(&tx_buffer,START_FLAG))
         leds_error_on();
 
     if(!circular_buffer_push(&tx_buffer,data_len+2)) //+2 because we include type of message byte and length byte as part of the packet
@@ -287,21 +244,24 @@ uint8_t openserial_printf(char *data_ptr , uint8_t data_len,uint8_t type) {
 }
 
 uint8_t openserial_handleCommands(void) {
-    if(openserial_vars.reqFrame[1] == 'C')
+    uint8_t cmdByte;
+    cmdByte = rx_buffer.buffer[rx_buffer.tail+1];
+    if(cmdByte == CONTROL_COMMAND)
         handle_control_commands();
-    else if(openserial_vars.reqFrame[1] == 'D')
+    else if(cmdByte == DATA_COMMAND)
         handle_data_commands();
 }
 
 uint8_t handle_control_commands() {
-    uint8_t nbr_count,index,nbr_list[40],slots[5] = {0,0,0,0,0},node_type = FALSE,slotframeID;
+    uint8_t nbr_count,index,nbr_list[40],slots[5] = {0,0,0,0,0},node_type = FALSE,slotframeID,control_cmd_byte;
     uint16_t maxActiveSlots = 0,i = 0;
     bool     foundNeighbor;
     neighborRow_t* neighbor;
     open_addr_t nbr;
     scheduleEntry_t* sE;
     cellInfo_ht  celllist_add[CELLLIST_MAX_LEN];
-    switch(openserial_vars.reqFrame[2]) 
+    control_cmd_byte = rx_buffer.buffer[rx_buffer.tail+2];
+    switch(control_cmd_byte)
     {
         case SET_DAG_ROOT:             //0 corresponds to set dagroot command.
             idmanager_triggerAboutRoot();
@@ -330,7 +290,7 @@ uint8_t handle_control_commands() {
             {
                 if (schedule_getInfo((uint8_t)i, &sE) == E_FAIL)
                 {
-                    openserial_printf("schedule error",sizeof("schedule error")-1,'E');
+                    openserial_printf("schedule error",sizeof("schedule error")-1,SERIAL_MSG_ERR);
                     return E_FAIL;
                 }
                 else
@@ -400,18 +360,20 @@ uint8_t handle_control_commands() {
                 0                                   // list command maximum celllist (not used)
             );
             break;
+        case RESET_BOARD:
+            openserial_board_reset_cb();
+            break;
     }
 }
 
 uint8_t handle_data_commands() {
-    switch(openserial_vars.reqFrame[2])
+    uint8_t data_cmd_byte;
+    data_cmd_byte = rx_buffer.buffer[rx_buffer.tail+2];
+    switch(data_cmd_byte)
     {
         case 0:         //0 corresponds to UDP packet so inject udp packet
         inject_udp_packet();
-        //leds_error_toggle();
         break;
-        default:
-            ;
     }
 }
 
@@ -419,10 +381,10 @@ uint8_t send_response_packet(uint8_t *data,uint8_t length)
 {
     uint8_t resp[50] = {0};
     //In this first byte takes into account length byte, command category, command sub category,length of result
-    resp[0] = openserial_vars.reqFrame[1];
-    resp[1] = openserial_vars.reqFrame[2];
+    resp[0] = rx_buffer.buffer[rx_buffer.tail+1];
+    resp[1] = rx_buffer.buffer[rx_buffer.tail+2];
     memcpy(resp+2,data,length);
-    openserial_printf(resp,length+2,'R'); //resp[0] contains the length of the packet
+    openserial_printf(resp,length+2,SERIAL_MSG_RSP); //resp[0] contains the length of the packet
 }
 
 
@@ -437,13 +399,15 @@ uint8_t inject_udp_packet()
     if (idmanager_getIsDAGroot()) {
         //Here I have to call openbridge to inject packet and packet has to be in iphc format.
         openbridge_triggerData();
-          return;
+        return;
     }
     //Now start forming the udp packet.
     // get a free packet buffer.
     pkt = openqueue_getFreePacketBuffer(COMPONENT_OPENSERIAL);
     if (pkt == NULL) {
-        leds_error_toggle();
+        openserial_printError(COMPONENT_OPENSERIAL,ERR_NO_FREE_PACKET_BUFFER,
+                   (errorparameter_t)0,
+                   (errorparameter_t)0);
         return;
     }
     pkt->owner                         = COMPONENT_OPENSERIAL;
@@ -454,33 +418,28 @@ uint8_t inject_udp_packet()
     pkt->l3_destinationAdd.type        = ADDR_128B;
     memcpy(&pkt->l3_destinationAdd.addr_128b[0],packet_dst_addr,16);
 
-    packetfunctions_reserveHeaderSize(pkt,openserial_vars.reqFrame[0]-3);
-    memcpy(&pkt->payload[0],openserial_vars.reqFrame+3,openserial_vars.reqFrame[0]-3);
+    packetfunctions_reserveHeaderSize(pkt,rx_buffer.buffer[rx_buffer.tail]-5);
+    memcpy(&pkt->payload[0],&rx_buffer.buffer[rx_buffer.tail]+3,rx_buffer.buffer[rx_buffer.tail]-5);
 
     if ((openudp_send(pkt))==E_FAIL) {
         openqueue_freePacketBuffer(pkt);
-        leds_error_toggle();
+        openserial_printError(COMPONENT_OPENSERIAL,ERR_PKT_INJECT_FAILED,
+                   (errorparameter_t)0,
+                   (errorparameter_t)0);
     }
 }
 
 void udp_inject_sendDone(OpenQueueEntry_t* msg, owerror_t error) {
     uint8_t buff[] = {7,7,7,7,7};
-    openserial_printf(buff,sizeof(buff),'D');
+    openserial_printf(buff,sizeof(buff),SERIAL_MSG_DEB);
     openqueue_freePacketBuffer(msg);
 }
 
 void udp_inject_receive(OpenQueueEntry_t* pkt) {
     uint8_t buff[] = {8,8,8,8,8};
-    openserial_printf(buff,sizeof(buff),'D');
-   openserial_printf(&pkt->payload[0],pkt->length,'P');
-   openqueue_freePacketBuffer(pkt);
-   
-   openserial_printError(
-      COMPONENT_UINJECT,
-      ERR_RCVD_ECHO_REPLY,
-      (errorparameter_t)0,
-      (errorparameter_t)0
-   );
+    openserial_printf(buff,sizeof(buff),SERIAL_MSG_DEB);
+    openserial_printf(&pkt->payload[0],pkt->length,SERIAL_MSG_PKT);
+    openqueue_freePacketBuffer(pkt);
 }
 
 
@@ -488,14 +447,16 @@ void udp_inject_receive(OpenQueueEntry_t* pkt) {
 
 uint8_t openserial_getInputBufferFilllevel()
 {
-    return openserial_vars.reqFrame[0]-5;
+    //Subratracting 5 in length for three commnd bytes(0x73,cmdbyte,subcmdbyte,checksum)
+    return rx_buffer.buffer[rx_buffer.tail]-5;
 }
 
 uint8_t openserial_getInputBuffer(uint8_t* bufferToWrite, uint8_t maxNumBytes)
 {
     //openserial_printf(openserial_vars.reqFrame+3,openserial_vars.reqFrame[0]-3,'D');
-    memcpy(bufferToWrite,openserial_vars.reqFrame+3,openserial_vars.reqFrame[0]-5);
-    return openserial_vars.reqFrame[0]-5;
+    //Subratracting 5 in length for three commnd bytes(0x73,cmdbyte,subcmdbyte,checksum)
+    memcpy(bufferToWrite,&rx_buffer.buffer[rx_buffer.tail]+3,rx_buffer.buffer[rx_buffer.tail]-5);
+    return rx_buffer.buffer[rx_buffer.tail]-5;
 }
 
 //=========================== interrupt handlers ==============================
@@ -506,15 +467,23 @@ uint8_t openserial_getInputBuffer(uint8_t* bufferToWrite, uint8_t maxNumBytes)
  *  executed in ISR, called from scheduler.c}
  */
 void isr_openserial_tx() {
-    // if(bytes_tx_count < rx_buffer.length) {
-    //     uart_writeByte(rx_buffer.buffer[bytes_tx_count++]);
-    // } else {
-        // bytes_tx_count = 0;
-        // rx_buffer.length = 0;
-    // }
+
     uint8_t data = NULL;
-    if(circular_buffer_pop(&tx_buffer,&data))
-        uart_writeByte(data);
+    switch (openserial_vars.mode)
+    {
+        case MODE_INPUT:
+            openserial_vars.reqFrameIdx++;
+            if (openserial_vars.reqFrameIdx<sizeof(openserial_vars.reqFrame))
+                uart_writeByte(openserial_vars.reqFrame[openserial_vars.reqFrameIdx]);
+            break;
+        case MODE_OUTPUT:
+            if(circular_buffer_pop(&tx_buffer,&data))
+                uart_writeByte(data);
+            break;
+        case MODE_OFF:
+            default:
+            break;
+    }
 }
 
 /**
@@ -523,30 +492,11 @@ void isr_openserial_tx() {
  *  executed in ISR, called from scheduler.c}
  */
 void isr_openserial_rx() {
-    // uint8_t cmd;
-    // cmd = uart_readByte();
-    // if(cmd == 0x01)
-    //     idmanager_setIsDAGroot(TRUE);   //Here I will set the node as dagroot
-    // rx_buffer.buffer[rx_buffer.length] = cmd;
-    // //uart_writeByte(rx_buffer.buffer[rx_buffer.length]);
-    // rx_buffer.length++;
-
-    // if(rx_buffer.length >= 10) 
-    // {
-    //     uart_writeByte(neighbors_getNumNeighbors());
-    //     // tx_buffer.length = rx_buffer.length-1;
-    //     // rx_buffer.length = 0;
-    // }
-    // Here starts a critical section. Critical section is not needed for isr
-    // hence commenting
-    //INTERRUPT_DECLARATION();
+    // stop if I'm not in input mode
+    if (openserial_vars.mode!=MODE_INPUT)
+        return;
     uint8_t data = uart_readByte();
     circular_buffer_push(&rx_buffer,data);
-    //uart_writeByte(rx_buffer.head - rx_buffer.tail);
-
-    //DISABLE_INTERRUPTS();
-
-    //ENABLE_INTERRUPTS();
 }
 
 uint8_t circular_buffer_push(circBuf_t *buffer_ptr,uint8_t dataValue)
@@ -558,9 +508,13 @@ uint8_t circular_buffer_push(circBuf_t *buffer_ptr,uint8_t dataValue)
     //This signifies that ring buffer is full, Hence blink error led and log the error
     if(next == buffer_ptr->tail)
     {
-        leds_error_toggle();
+        if(buffer_ptr == &rx_buffer)
+            openserial_printError(COMPONENT_OPENSERIAL,ERR_INPUT_BUFFER_OVERFLOW, \
+                (errorparameter_t)0,(errorparameter_t)buffer_ptr->fill_level);
+        else
+            openserial_printError(COMPONENT_OPENSERIAL,ERR_OUTPUT_BUFFER_OVERFLOW,\
+                (errorparameter_t)1,(errorparameter_t)tx_buffer.fill_level);
         return FALSE;
-        //TODO: Print the serial msg
     }
     buffer_ptr->buffer[buffer_ptr->head] = dataValue;
     buffer_ptr->head = next;
@@ -571,7 +525,14 @@ uint8_t circular_buffer_push(circBuf_t *buffer_ptr,uint8_t dataValue)
 uint8_t circular_buffer_pop(circBuf_t *buffer_ptr,uint8_t *data)
 {
     // if the head isn't ahead of the tail, we don't have any characters
-    if (buffer_ptr->head == buffer_ptr->tail) {     // check if circular buffer is empty.
+    if (buffer_ptr->head == buffer_ptr->tail)      // check if circular buffer is empty.
+    {
+        if(buffer_ptr == &rx_buffer)
+            openserial_printError(COMPONENT_OPENSERIAL,ERR_INPUT_BUFFER_EMPTY, \
+                (errorparameter_t)0,(errorparameter_t)buffer_ptr->fill_level);
+        else
+            openserial_printError(COMPONENT_OPENSERIAL,ERR_OUTPUT_BUFFER_EMPTY,\
+                (errorparameter_t)1,(errorparameter_t)tx_buffer.fill_level);
         data = NULL;
         return FALSE;           // and return with an error.
     }
@@ -580,7 +541,9 @@ uint8_t circular_buffer_pop(circBuf_t *buffer_ptr,uint8_t *data)
     if(next >= buffer_ptr->maxLen)
         next = 0;
 
-    *data = buffer_ptr->buffer[buffer_ptr->tail]; // Read data and then move
+    if(data != NULL)
+        *data = buffer_ptr->buffer[buffer_ptr->tail]; // Read data and then move
+
     buffer_ptr->tail = next;
     buffer_ptr->fill_level--;
     return TRUE;
@@ -667,7 +630,7 @@ owerror_t openserial_printError(
     buff[1] = error_code;
     memcpy(buff+2,&arg1,2);
     memcpy(buff+4,&arg2,2);
-    openserial_printf(buff,6,'E');
+    openserial_printf(buff,6,SERIAL_MSG_ERR);
     return E_SUCCESS;
 }
 

@@ -1014,19 +1014,19 @@ port_INLINE void activity_ti1ORri1() {
          //start inputting serial data
          openserial_startInput();
          //this is to emulate a set of serial input slots without having the slotted structure.
-
          //skip the serial rx slots
-         ieee154e_vars.numOfSleepSlots = NUMSERIALRX;
+         ieee154e_vars.numOfSleepSlots = 1;//NUMSERIALRX;
          
          //increase ASN by NUMSERIALRX-1 slots as at this slot is already incremented by 1
-         for (i=0;i<NUMSERIALRX-1;i++){
-            incrementAsnOffset();
+         //for (i=0;i<NUMSERIALRX-1;i++){
+            //incrementAsnOffset();
             // advance the schedule
-            schedule_advanceSlot();
+            //schedule_advanceSlot();
             // find the next one
-            ieee154e_vars.nextActiveSlotOffset = schedule_getNextActiveSlotOffset();
-         }
+            //ieee154e_vars.nextActiveSlotOffset = schedule_getNextActiveSlotOffset();
+         //}
          // possibly skip additional slots if enabled
+         // Flow is not going to this part of the code as of now, If necessary remove it later
          if (idmanager_getIsSlotSkip() && idmanager_getIsDAGroot()==FALSE) {
              if (ieee154e_vars.nextActiveSlotOffset>ieee154e_vars.slotOffset) {
                  ieee154e_vars.numOfSleepSlots = ieee154e_vars.nextActiveSlotOffset-ieee154e_vars.slotOffset+NUMSERIALRX-1;

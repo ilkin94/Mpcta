@@ -269,6 +269,10 @@ enum {
    ERR_REPLAY_FAILED                   = 0x47, // OSCOAP replay protection failed
    ERR_DECRYPTION_FAILED               = 0x48, // OSCOAP decryption and tag verification failed
    ERR_ABORT_JOIN_PROCESS              = 0x49, // Aborted join process {code location {0}}
+   ERR_OUTPUT_BUFFER_OVERFLOW          = 0x50, // the output buffer has overflown
+   ERR_PKT_INJECT_FAILED               = 0x51  // UDP Packet inject failed
+   ERR_INPUT_BUFFER_EMPTY              = 0x52  // openserial input buffer is empty
+   ERR_OUTPUT_BUFFER_EMPTY             = 0x53  // openserial output buffer is empty
 };
 
 //=========================== typedef =========================================
