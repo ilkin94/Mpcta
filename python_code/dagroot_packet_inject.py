@@ -24,7 +24,7 @@ command_add_tx_slot = bytearray([0x7e,0x03,0x43,0x05])
 
 command_add_rx_slot = bytearray([0x7e,0x03,0x43,0x06])
 
-command_get_buff_stat = bytearray([0x7e,0x03,0x43,0xff])
+command_reset_board = bytearray([0x7e,0x03,0x43,0x08])
 
 command_inject_udp_packet = bytearray([0x7e,0x03,0x44,0x00])
 
@@ -66,6 +66,9 @@ class moteProbe(threading.Thread):
         self.dataLock            = threading.Lock()
         self.rxByte              = 0
         self.prevByte            = 0
+        self.prev_packet_time    = 0
+        self.latency             = [0.0,0.0] #Here first element represents prev_latency, and second element represents sample count used to calculate the average latency 
+        self.prev_pkt            = None
         
 
         # flag to permit exit from read loop
@@ -133,7 +136,22 @@ class moteProbe(threading.Thread):
             print "received packet: "+":".join("{:02x}".format(ord(c)) for c in self.inputBuf[2:])
             data = [int(binascii.hexlify(x),16) for x in self.inputBuf]
             data_tuple = self.parser_data.parseInput(data[2:])
-            self.routing_instance.meshToLbr_notify(data_tuple)
+            (result,data) = self.routing_instance.meshToLbr_notify(data_tuple)
+            if not result:
+                if self.prev_pkt  == data[4:]:
+                    print "Duplicate packet"
+                    self.inputBuf = ''
+                    return
+                curr_packet_time = int(round(time.time() * 1000))
+                print "received data: "+':'.join(str(hex(i)) for i in data[4:])+" , Packet Latency: "+str(curr_packet_time-self.prev_packet_time)
+                x = curr_packet_time - self.prev_packet_time
+                self.latency[1] = self.latency[1] + 1.0
+                if self.latency[1] > 1.0:
+                    x = curr_packet_time - self.prev_packet_time
+                    self.running_mean(x)
+                    print "average latency: "+ str(self.latency[0])
+                self.prev_packet_time = curr_packet_time
+                self.prev_pkt = data[4:]
         elif self.inputBuf[1] == 'D':
             print "debug msg: "+":".join("{:02x}".format(ord(c)) for c in self.inputBuf[2:])
         elif self.inputBuf[1] == 'R':
@@ -151,9 +169,15 @@ class moteProbe(threading.Thread):
 
     def close(self):
         self.goOn = False
-        
+
     def prepare_UDP_packet(self,payload):
         print "prepare_UDP_packet"
+
+        #Running mean implementation by storing only one element, and sample count
+    def running_mean(self,x):
+        #I have used 300 to make sure that first outlier is rejected, while calculating the average
+        tmp = self.latency[0] * max(self.latency[1]-1,1) + x
+        self.latency[0] = tmp / self.latency[1]
 #End of ModeProbe class definition
 
 
@@ -251,6 +275,7 @@ if __name__=="__main__":
     print "  sch to get mote schedule"
     print "  tx to add tx slot"
     print "  rx to add rx slot"
+    print "  reset to reset the board"
     print "  quit to exit "
     
     try:
@@ -310,15 +335,19 @@ if __name__=="__main__":
                 outputBufLock = True
                 outputBuf += command_add_rx_slot + chsum;
                 outputBufLock  = False
+            elif cmd == "reset":
+                print "sending reset command"
+                sys.stdout.flush()
+                command_reset_board[1] = len(command_reset_board)-1 + 2 #excluding 0x7e and including 2 byte checksum in the len
+                chsum = checkSumCalc(command_reset_board[1:]) #Excluding 0x7e for checksum calculation
+                outputBufLock = True
+                outputBuf += [str(command_reset_board + chsum)];
+                outputBufLock  = False
             elif cmd == "quit":
                 print "exiting"
                 break;
             else:
-                print "getting buff status"
-                sys.stdout.flush()
-                outputBufLock = True
-                outputBuf += command_get_buff_stat;
-                outputBufLock  = False
+                print "unknown command"
             while(SendPacketMode):
                     #try:
                         #data, addr = socket_handler.recvfrom(3)
@@ -328,9 +357,9 @@ if __name__=="__main__":
                     #except KeyboardInterrupt:
                         #moteProbe_object.close()
                         #exit()
-                    data = "100"
+                    millis = int(round(time.time() * 1000))
                     sys.stdout.flush()
-                    test.setData(data)
+                    test.setData(str(millis))
                     tmp = test.getPacket()
                     #print "ipv6: "+':'.join(hex(i) for i in tmp)
                     lowpan_packet = moteProbe_object.routing_instance.convert_to_iphc(tmp)
@@ -348,7 +377,7 @@ if __name__=="__main__":
                         outputBufLock = True
                         outputBuf += bytearray(str(command_inject_udp_packet)+str_lowpanbytes+str(chsum))
                         outputBufLock  = False
-                    time.sleep(0.05)
+                    time.sleep(0.083)
     except KeyboardInterrupt:
         #socketThread_object.close()
         moteProbe_object.close()
