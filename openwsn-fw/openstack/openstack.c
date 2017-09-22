@@ -46,7 +46,7 @@
 
 void openstack_init(void) {
 
-   char boot_message[21] = "My address: ";
+   char boot_message[8];
    //===== drivers
    openserial_init();
    
@@ -85,7 +85,7 @@ void openstack_init(void) {
    );
 
    //Added to print the address after booting.
-   eui64_get(boot_message+12);
-   openserial_printf(boot_message,20,'D');
+   eui64_get(boot_message);
+   openserial_printf(boot_message,8,'D');
 }
 

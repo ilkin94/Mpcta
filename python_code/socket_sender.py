@@ -16,6 +16,6 @@ try:
         millis = int(round(time.time() * 1000))
         print "sending data: "+str(message) +" time: "+str(millis)
         s.sendto(str(message), (UDP_IP, UDP_PORT))
-        time.sleep(0.1)
+        time.sleep(0.083)
 except KeyboardInterrupt:
     exit()

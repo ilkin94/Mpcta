@@ -10,7 +10,8 @@ from ParserData import ParserData
 from Routing import Routing
 from UDPPacket import UDPPacket
 
-command_set_dagroot = bytearray([0x7e,0x03,0x43,0x00])
+#This command includes the prefix and the security key of the 802.15.4 network
+command_set_dagroot = bytearray([0x7e,0x1c,0x43,0x00,0x54,0xbb,0xbb,0x00,0x00,0x00,0x00,0x00,0x00,0x01,0x91,0x5b,0xc9,0xf1,0x5c,0x77,0x57,0x89,0x4f,0x4f,0x86,0x15,0xd8,0x14,0x25,0x27])
 
 command_get_node_type = bytearray([0x7e,0x03,0x43,0x01])
 
@@ -370,6 +371,7 @@ if __name__=="__main__":
                     if lowpan_packet is None:
                         #This happens when we don't have a route to the mote
                         print "Unable to inject packet"
+                        time.sleep(0.1)
                         continue
                     #str_lowpanbytes = lowpan_udp_packet
                     str_lowpanbytes = ''.join(chr(i) for i in lowpan_packet[0]+lowpan_packet[1])
@@ -381,7 +383,7 @@ if __name__=="__main__":
                         outputBufLock = True
                         outputBuf += [str(command_inject_udp_packet)+str_lowpanbytes+str(chsum)]
                         outputBufLock  = False
-                    time.sleep(0.09)
+                    time.sleep(0.1)
     except KeyboardInterrupt:
         #socketThread_object.close()
         moteProbe_object.close()
