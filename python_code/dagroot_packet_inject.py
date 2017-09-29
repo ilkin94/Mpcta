@@ -310,12 +310,14 @@ if __name__=="__main__":
                     print "Unable to inject packet"
                     continue
                 str_lowpanbytes = ''.join(chr(i) for i in lowpan_packet[0]+lowpan_packet[1])
-                print "injecting: "+":".join("{:02x}".format(ord(c)) for c in str_lowpanbytes)
-
-                outputBufLock = True
-                command_inject_udp_packet[1] = len(command_inject_udp_packet) + len(str_lowpanbytes)-1; #Here subtracting one because 0x7e is not included in the length
-                outputBuf += [str(command_inject_udp_packet)+str_lowpanbytes]
-                outputBufLock  = False
+                #Here subtracting one because 0x7e is not included in the length, Adding to two to include checksum bytes.
+                command_inject_udp_packet[1] = len(command_inject_udp_packet) + len(str_lowpanbytes)-1 + 2;
+                #Here I will calculate 16-bit checksum for the whole packet then, I will attach it to end of the packet.
+                chsum = checkSumCalc(bytearray(str(command_inject_udp_packet[1:])+str_lowpanbytes))
+                if not outputBufLock:
+                    outputBufLock = True
+                    outputBuf += [str(command_inject_udp_packet)+str_lowpanbytes+str(chsum)]
+                    outputBufLock  = False
             elif cmd == "sch":
                 print "sending get schedule command"
                 sys.stdout.flush()

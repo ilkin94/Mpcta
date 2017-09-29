@@ -24,6 +24,33 @@
 #include "icmpv6echo.h"
 #include "sf0.h"
 #include "stdint.h"
+#include "scheduler.h" //Added for accessing scheduler API's
+
+//Local function declarations
+uint8_t circular_buffer_push(circBuf_t *,uint8_t );
+
+uint8_t circular_buffer_pop(circBuf_t *,uint8_t *);
+
+uint8_t openserial_handleCommands(void);
+
+uint8_t handle_control_commands(void);
+
+uint8_t handle_data_commands(void);
+
+uint8_t inject_udp_packet(void);
+
+uint8_t send_response_packet(uint8_t *,uint8_t);
+
+void udp_inject_sendDone(OpenQueueEntry_t* msg, owerror_t error);
+
+void udp_inject_receive(OpenQueueEntry_t* msg);
+
+bool verify_checksum();
+
+// misc
+void openserial_board_reset_cb(opentimers_id_t id);
+
+owerror_t measure_timer_timeout(opentimers_id_t id);
 
 
 /**
@@ -48,6 +75,16 @@ enum data_commands
     INJECT_TCP_PACKET
 };
 
+typedef struct {
+    uint8_t received_bytes;
+    uint32_t  required_ticks;
+    uint8_t packet_len;
+} ticks_measure_vars_t;
+
+static const uint8_t packet_dst_addr[]   = {
+   0xbb, 0xbb, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01
+};
 
 /*
  * Local variables (Variables used within this file)
@@ -63,34 +100,10 @@ CIRCBUF_DEF(tx_buffer,SERIAL_OUTPUT_BUFFER_SIZE);
 //Receiving buffer for the uart.
 CIRCBUF_DEF(rx_buffer,SERIAL_INPUT_BUFFER_SIZE);
 
-
-//Local function declarations
-uint8_t circular_buffer_push(circBuf_t *,uint8_t );
-
-uint8_t circular_buffer_pop(circBuf_t *,uint8_t *);
-
-uint8_t openserial_handleCommands(void);
-
-uint8_t handle_control_commands(void);
-
-uint8_t handle_data_commands(void);
-
-uint8_t inject_udp_packet(void);
-
-uint8_t send_response_packet(uint8_t *,uint8_t);
-
-void udp_inject_sendDone(OpenQueueEntry_t* msg, owerror_t error);
-
-void udp_inject_receive(OpenQueueEntry_t* msg);
-
-bool verify_checksum();
-
-static const uint8_t packet_dst_addr[]   = {
-   0xbb, 0xbb, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01
-};
-
 udp_inject_vars_t udp_inject_vars;
+
+//Received byte count, For measuring the time taken to receive a frame serially
+ticks_measure_vars_t ticks_measure_vars;
 //=========================== public ==========================================
 
 //===== admin
@@ -111,6 +124,7 @@ void openserial_init() {
 
     // clear local variables
     memset(&udp_inject_vars,0,sizeof(udp_inject_vars_t));
+    memset(&ticks_measure_vars,0,sizeof(ticks_measure_vars_t));
 
     // register at UDP stack
     udp_inject_vars.desc.port              = WKP_UDP_OPENSERIAL;
@@ -136,6 +150,7 @@ void openserial_startInput() {
 
     openserial_vars.reqFrameIdx    = 0;
     openserial_vars.mode = MODE_INPUT;
+    //ticks_measure_vars.required_ticks = opentimers_getValue();
     uart_writeByte(openserial_vars.reqFrame[openserial_vars.reqFrameIdx]);
     ENABLE_INTERRUPTS();
 }
@@ -179,7 +194,7 @@ void openserial_stop() {
         circular_buffer_pop(&rx_buffer,NULL);
     if(buffer_level > rx_buffer.buffer[rx_buffer.tail])
     {
-        //openserial_printf(&rx_buffer.buffer[1],buffer_level-1,'D');
+        //openserial_printf(ticks_measure_vars.required_ticks,4,'D'); //This is to check the time taken for receiving the packet by uart
         //Here I am going to check the checksum, If its correct then only I process the command else throw away the frame
         if(verify_checksum())
             openserial_handleCommands();
@@ -189,6 +204,8 @@ void openserial_stop() {
     rx_buffer.head = rx_buffer.tail = 0;
     rx_buffer.fill_level = 0;
     ENABLE_INTERRUPTS();
+    //Clearing the stats of previous serial packet
+    memset(&ticks_measure_vars,0,sizeof(ticks_measure_vars_t));
     return;
 }
 
@@ -259,6 +276,8 @@ uint8_t handle_control_commands() {
     neighborRow_t* neighbor;
     open_addr_t nbr;
     scheduleEntry_t* sE;
+    opentimers_id_t id;
+    uint32_t  reference;
     cellInfo_ht  celllist_add[CELLLIST_MAX_LEN];
     control_cmd_byte = rx_buffer.buffer[rx_buffer.tail+2];
     switch(control_cmd_byte)
@@ -361,7 +380,15 @@ uint8_t handle_control_commands() {
             );
             break;
         case RESET_BOARD:
-            openserial_board_reset_cb();
+            id        = opentimers_create();
+            reference = opentimers_getValue();
+            opentimers_scheduleAbsolute(
+                id,                             // timerId
+                1000,                          // duration
+                reference,                      // reference
+                TIME_MS,                        // timetype
+                openserial_board_reset_cb       // callback
+                );
             break;
     }
 }
@@ -419,6 +446,7 @@ uint8_t inject_udp_packet()
     memcpy(&pkt->l3_destinationAdd.addr_128b[0],packet_dst_addr,16);
 
     packetfunctions_reserveHeaderSize(pkt,rx_buffer.buffer[rx_buffer.tail]-5);
+    int tmp=rx_buffer.buffer[rx_buffer.tail]-5;
     memcpy(&pkt->payload[0],&rx_buffer.buffer[rx_buffer.tail]+3,rx_buffer.buffer[rx_buffer.tail]-5);
 
     if ((openudp_send(pkt))==E_FAIL) {
@@ -492,14 +520,44 @@ void isr_openserial_tx() {
  *  executed in ISR, called from scheduler.c}
  */
 void isr_openserial_rx() {
+    uint32_t ticks;
     // stop if I'm not in input mode
     if (openserial_vars.mode!=MODE_INPUT)
         return;
+    //ticks = opentimers_getValue() - ticks_measure_vars.required_ticks;
+    //openserial_printf(&ticks,4,'D');
     uint8_t data = uart_readByte();
+    //Measurement code starts here
+    ticks_measure_vars.received_bytes++;
+    if(data == START_FLAG)
+    {
+        ticks_measure_vars.required_ticks = opentimers_getValue();
+        //openserial_printf(&ticks_measure_vars.required_ticks,4,'D');
+    }
+    else if(ticks_measure_vars.received_bytes == 2) //2 Because second byte contains the length byte.
+    {
+        ticks_measure_vars.packet_len = data;
+    }
+    else if(ticks_measure_vars.received_bytes == ticks_measure_vars.packet_len + 1)
+    {
+        ticks = opentimers_getValue();
+        //These ticks are for packet_len-1 bytes, Because we started considering ticks after first byte is received
+        ticks_measure_vars.required_ticks = ticks - ticks_measure_vars.required_ticks;
+        //openserial_printf(&ticks_measure_vars.required_ticks,4,'D');
+    }
+    //Measurement code ends here
     circular_buffer_push(&rx_buffer,data);
 }
 
-uint8_t circular_buffer_push(circBuf_t *buffer_ptr,uint8_t dataValue)
+/**
+ * @brief      { adds the data to the circular buffer,Made inline to improve the performance in the expense of code size }
+ *
+ * @param      buffer_ptr  The buffer pointer
+ * @param[in]  dataValue   The data value
+ *
+ * @return     { TRUE if value is successfully pushed to the buffer, FALSE otherwise }
+ */
+port_INLINE uint8_t circular_buffer_push(circBuf_t *buffer_ptr,uint8_t dataValue)
 {
     uint8_t next = buffer_ptr->head + 1;
 
@@ -522,7 +580,15 @@ uint8_t circular_buffer_push(circBuf_t *buffer_ptr,uint8_t dataValue)
     return TRUE;
 }
 
-uint8_t circular_buffer_pop(circBuf_t *buffer_ptr,uint8_t *data)
+/**
+ * @brief      { reading a value from the circular buffer,,Made inline to improve the performance in the expense of code size}
+ *
+ * @param      buffer_ptr  The buffer pointer.
+ * @param      data        The data pointer points to the address where read data will be copied.
+ *
+ * @return     { TRUE if value is successfully read from the buffer, FALSE otherwise }
+ */
+port_INLINE uint8_t circular_buffer_pop(circBuf_t *buffer_ptr,uint8_t *data)
 {
     uint8_t next;
     // if the head isn't ahead of the tail, we don't have any characters
@@ -541,11 +607,39 @@ uint8_t circular_buffer_pop(circBuf_t *buffer_ptr,uint8_t *data)
     return TRUE;
 }
 
+// printing
+owerror_t openserial_printError(
+    uint8_t             calling_component,
+    uint8_t             error_code,
+    errorparameter_t    arg1,
+    errorparameter_t    arg2
+) {
+    //Disabled
+    uint8_t buff[] = {0,0,0,0,0,0};
+    buff[0] = calling_component;
+    buff[1] = error_code;
+    memcpy(buff+2,&arg1,2);
+    memcpy(buff+4,&arg2,2);
+    openserial_printf(buff,6,SERIAL_MSG_ERR);
+    return E_SUCCESS;
+}
+
+owerror_t measure_timer_timeout(opentimers_id_t id)
+{
+    // resynchronize by applying the new period
+    // opentimers_scheduleAbsolute(ticks_measure_vars.timerId,
+    //     (uint32_t) 10000,
+    //     sctimer_readCounter(),
+    //     TIME_MS,
+    //     ticks_measure_vars.callback
+    // );
+    openserial_printf("timeout",sizeof("timeout")-1,'D');
+}
+
 
 //Unused prototypes of functions.
 //=========================== prototypes ======================================
 
-// printing
 owerror_t openserial_printInfoErrorCritical(
     char             severity,
     uint8_t          calling_component,
@@ -558,8 +652,6 @@ owerror_t openserial_printInfoErrorCritical(
 void openserial_handleEcho(uint8_t* but, uint8_t bufLen);
 void openserial_get6pInfo(uint8_t commandId, uint8_t* code,uint8_t* cellOptions,uint8_t* numCells,cellInfo_ht* celllist_add,cellInfo_ht* celllist_delete,uint8_t* listOffset,uint8_t* maxListLen,uint8_t ptr, uint8_t commandLen);
 
-// misc
-void openserial_board_reset_cb(opentimers_id_t id);
 
 // HDLC output
 void outputHdlcOpen(void);
@@ -607,22 +699,6 @@ owerror_t openserial_printInfo(
     errorparameter_t    arg2
 ) {
     //Disabled
-    return E_SUCCESS;
-}
-
-owerror_t openserial_printError(
-    uint8_t             calling_component,
-    uint8_t             error_code,
-    errorparameter_t    arg1,
-    errorparameter_t    arg2
-) {
-    //Disabled
-    uint8_t buff[] = {0,0,0,0,0,0};
-    buff[0] = calling_component;
-    buff[1] = error_code;
-    memcpy(buff+2,&arg1,2);
-    memcpy(buff+4,&arg2,2);
-    openserial_printf(buff,6,SERIAL_MSG_ERR);
     return E_SUCCESS;
 }
 

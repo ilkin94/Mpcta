@@ -21,6 +21,7 @@
 ieee154e_vars_t    ieee154e_vars;
 ieee154e_stats_t   ieee154e_stats;
 ieee154e_dbg_t     ieee154e_dbg;
+uint32_t ticks_measure = 0;
 
 //=========================== prototypes ======================================
 
@@ -110,8 +111,8 @@ void ieee154e_init() {
    memset(&ieee154e_vars,0,sizeof(ieee154e_vars_t));
    memset(&ieee154e_dbg,0,sizeof(ieee154e_dbg_t));
    
-   ieee154e_vars.singleChannel     = 0; // 0 means channel hopping
-   ieee154e_vars.isAckEnabled      = TRUE;
+   ieee154e_vars.singleChannel     = SYNCHRONIZING_CHANNEL; // 0 means channel hopping
+   ieee154e_vars.isAckEnabled      = FALSE;                  //Chnaged to False from TRUE
    ieee154e_vars.isSecurityEnabled = FALSE;
    ieee154e_vars.slotDuration      = TsSlotDuration;
    ieee154e_vars.numOfSleepSlots   = 1;
@@ -294,6 +295,7 @@ void isr_ieee154e_newSlot(opentimers_id_t id) {
 #endif
       activity_ti1ORri1();
    }
+   //ticks_measure = sctimer_readCounter(); //Yadhu added
    ieee154e_dbg.num_newSlot++;
 }
 
@@ -387,7 +389,9 @@ void ieee154e_startOfFrame(PORT_TIMER_WIDTH capturedTime) {
      activity_synchronize_startOfFrame(referenceTime);
    } else {
       switch (ieee154e_vars.state) {
-         case S_TXDATADELAY:   
+         case S_TXDATADELAY:
+            //ticks_measure = sctimer_readCounter()-ticks_measure;
+            //openserial_printf(&ticks_measure,2,'E');
             activity_ti4(referenceTime);
             break;
          case S_RXACKREADY:
@@ -835,7 +839,7 @@ port_INLINE void activity_ti1ORri1() {
             return;
       }
    }
-   
+   //openserial_printf(&ieee154e_vars.state,2,'D');
    // if the previous slot took too long, we will not be in the right state
    if (ieee154e_vars.state!=S_SLEEP) {
       // log the error
@@ -856,7 +860,7 @@ port_INLINE void activity_ti1ORri1() {
       // advance the schedule
       schedule_advanceSlot();
       
-      // calculate the frequency to transmit on
+      // calculate the frequency to transmit on or to receive
       ieee154e_vars.freq = calculateFrequency(schedule_getChannelOffset()); 
       
       // find the next one
@@ -1027,18 +1031,18 @@ port_INLINE void activity_ti1ORri1() {
          //}
          // possibly skip additional slots if enabled
          // Flow is not going to this part of the code as of now, If necessary remove it later
-         if (idmanager_getIsSlotSkip() && idmanager_getIsDAGroot()==FALSE) {
-             if (ieee154e_vars.nextActiveSlotOffset>ieee154e_vars.slotOffset) {
-                 ieee154e_vars.numOfSleepSlots = ieee154e_vars.nextActiveSlotOffset-ieee154e_vars.slotOffset+NUMSERIALRX-1;
-             } else {
-                 ieee154e_vars.numOfSleepSlots = schedule_getFrameLength()+ieee154e_vars.nextActiveSlotOffset-ieee154e_vars.slotOffset+NUMSERIALRX-1; 
-             }
-              
-             //only increase ASN by numOfSleepSlots-NUMSERIALRX
-             for (i=0;i<ieee154e_vars.numOfSleepSlots-NUMSERIALRX;i++){
-                incrementAsnOffset();
-             }
-         }
+         // if (idmanager_getIsSlotSkip() && idmanager_getIsDAGroot()==FALSE) {
+         //     if (ieee154e_vars.nextActiveSlotOffset>ieee154e_vars.slotOffset) {
+         //         ieee154e_vars.numOfSleepSlots = ieee154e_vars.nextActiveSlotOffset-ieee154e_vars.slotOffset+NUMSERIALRX-1;
+         //     } else {
+         //         ieee154e_vars.numOfSleepSlots = schedule_getFrameLength()+ieee154e_vars.nextActiveSlotOffset-ieee154e_vars.slotOffset+NUMSERIALRX-1;
+         //     }
+
+         //     //only increase ASN by numOfSleepSlots-NUMSERIALRX
+         //     for (i=0;i<ieee154e_vars.numOfSleepSlots-NUMSERIALRX;i++){
+         //        incrementAsnOffset();
+         //     }
+         // }
          // set the timer based on calcualted number of slots to skip
          opentimers_scheduleAbsolute(
               ieee154e_vars.timerId,                            // timerId
@@ -1135,10 +1139,14 @@ port_INLINE void activity_tie1() {
 }
 
 port_INLINE void activity_ti3() {
+   //if(ieee154e_vars.localCopyForTransmission.l2_frameType == IEEE154_TYPE_DATA)
+   //openserial_printf(&ieee154e_vars.localCopyForTransmission.l2_frameType,2,'D');
     // change state
     changeState(S_TXDATADELAY);
+
 #ifdef SLOT_FSM_IMPLEMENTATION_MULTIPLE_TIMER_INTERRUPT
 #else
+    //ticks_measure = sctimer_readCounter(); //Yadhu added
     // arm tt3
     opentimers_scheduleAbsolute(
         ieee154e_vars.timerId,                            // timerId
@@ -1211,7 +1219,7 @@ port_INLINE void activity_tie3() {
 }
 
 port_INLINE void activity_ti5(PORT_TIMER_WIDTH capturedTime) {
-    bool listenForAck;
+    bool listenForAck = FALSE; //Yadhu modified
     
     // change state
     changeState(S_RXACKOFFSET);
@@ -1236,14 +1244,14 @@ port_INLINE void activity_ti5(PORT_TIMER_WIDTH capturedTime) {
     // record the captured time
     ieee154e_vars.lastCapturedTime = capturedTime;
    
-    // decides whether to listen for an ACK
+    // decides whether to listen for an ACK, Yadhu modified here to disable
     if (packetfunctions_isBroadcastMulticast(&ieee154e_vars.dataToSend->l2_nextORpreviousHop)==TRUE) {
         listenForAck = FALSE;
     } else {
-        listenForAck = TRUE;
+         if(ieee154e_vars.isAckEnabled)
+            listenForAck = TRUE;
     }
-   
-    if (listenForAck==TRUE) {
+       if (listenForAck==TRUE) {
 #ifdef SLOT_FSM_IMPLEMENTATION_MULTIPLE_TIMER_INTERRUPT
         // 1. schedule timer for enabling receiving
         // arm tt5
@@ -1275,6 +1283,9 @@ port_INLINE void activity_ti5(PORT_TIMER_WIDTH capturedTime) {
         ieee154e_vars.dataToSend = NULL;
         // abort
         endSlot();
+        //ticks_measure = sctimer_readCounter()-ticks_measure;
+        //openserial_printf(&ieee154e_vars.localCopyForTransmission.length,2,'D');
+        //openserial_printf(&ticks_measure,2,'D');
     }
 }
 
@@ -2000,6 +2011,7 @@ port_INLINE void activity_ri6() {
    // configure the radio for that frequency
    radio_setFrequency(ieee154e_vars.freq);
    
+   //openserial_printf(&ieee154e_vars.ackToSend->length,2,'E');
    // load the packet in the radio's Tx buffer
    radio_loadPacket(ieee154e_vars.ackToSend->payload,
                     ieee154e_vars.ackToSend->length);
@@ -2590,6 +2602,7 @@ void synchronizePacket(PORT_TIMER_WIDTH timeReceived) {
    if (
          ieee154e_vars.isSync==TRUE
       ) {
+      //leds_error_toggle();
       openserial_printError(COMPONENT_IEEE802154E,ERR_LARGE_TIMECORRECTION,
                             (errorparameter_t)timeCorrection,
                             (errorparameter_t)0);

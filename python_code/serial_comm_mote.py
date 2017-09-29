@@ -135,9 +135,13 @@ class moteProbe(threading.Thread):
         #elif self.inputBuf[1] == 'E' and not (int(binascii.hexlify(self.inputBuf[3]),16) == 0x09) \
                 #and not (int(binascii.hexlify(self.inputBuf[3]),16) == 0x1c) :
         elif self.inputBuf[1] == 'E':
-            print "------------------------------------------------------------------------"
-            print "error msg: "+":".join("{:02x}".format(ord(c)) for c in self.inputBuf[2:])
-            print "------------------------------------------------------------------------"
+            if (int(binascii.hexlify(self.inputBuf[3]),16) == 0x09) \
+                or (int(binascii.hexlify(self.inputBuf[3]),16) == 0x1c) :
+                    print "error msg: "+":".join("{:02x}".format(ord(c)) for c in self.inputBuf[2:])
+            else:
+                print "------------------------------------------------------------------------"
+                print "error msg: "+":".join("{:02x}".format(ord(c)) for c in self.inputBuf[2:])
+                print "------------------------------------------------------------------------"
         elif self.inputBuf[1] == 'S':
             #Sending commands to mote
             #Here I am using global variables
