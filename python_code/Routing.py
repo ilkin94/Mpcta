@@ -208,6 +208,8 @@ class Routing():
         #Only if the RPL type is RPL Control i.e first byte is 155, then only it is DAO otherwise it might echo reply
         #process only if the packet DAO
         if(ipv6dic['icmpv6_type'] == 0x9b):
+            print " "
+            print "======================================================="
             print "DAO message update parents"
         else:
             print "This icmp message is not DAO return from here"
@@ -560,6 +562,8 @@ class Routing():
         print self.parents
         
         print "updated parents clearing the list based on last seen"
+        print "======================================================="
+        print " "
         self.clearNodeTimeout()
         
     def getParents(self):

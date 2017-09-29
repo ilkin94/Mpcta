@@ -70,6 +70,7 @@ class moteProbe(threading.Thread):
         self.prev_packet_time    = 0
         self.latency             = [0.0,0.0] #Here first element represents prev_latency, and second element represents sample count used to calculate the average latency 
         self.prev_pkt            = None
+        self.rframe_latency      = 0
         
 
         # flag to permit exit from read loop
@@ -154,7 +155,9 @@ class moteProbe(threading.Thread):
         elif self.inputBuf[1] == 'S':
             #Sending commands to mote
             #Here I am using global variables
-            #print "request frame"
+            curr_packet_time = int(round(time.time() * 1000))
+            print "request frame: " + str(curr_packet_time-self.rframe_latency)
+            self.rframe_latency  =  curr_packet_time
             global outputBuf
             global outputBufLock
             if (len(outputBuf) > 0) and not outputBufLock:
@@ -366,7 +369,7 @@ if __name__=="__main__":
                         #exit()
                     millis = int(round(time.time() * 1000))
                     sys.stdout.flush()
-                    test.setData(str(millis))
+                    test.setData("yadhunandana")
                     tmp = test.getPacket()
                     #print "ipv6: "+':'.join(hex(i) for i in tmp)
                     lowpan_packet = moteProbe_object.routing_instance.convert_to_iphc(tmp)

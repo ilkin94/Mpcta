@@ -60,6 +60,7 @@ class moteProbe(threading.Thread):
         self.prev_packet_time    = 0
         self.latency             = [0.0,0.0] #Here first element represents prev_latency, and second element represents sample count used to calculate the average latency 
         self.prev_pkt            = None
+        self.rframe_latency      = 0
 
         # flag to permit exit from read loop
         self.goOn                 = True
@@ -92,7 +93,7 @@ class moteProbe(threading.Thread):
                     continue
             except Exception as err:
                 print err
-                time.sleep(0.1)
+                #time.sleep(0.1)
                 break
             else:
                 if self.busyReceiving and (int(binascii.hexlify(self.prevByte),16) == 0x7e):
@@ -145,7 +146,9 @@ class moteProbe(threading.Thread):
         elif self.inputBuf[1] == 'S':
             #Sending commands to mote
             #Here I am using global variables
-            #print "request frame"
+            curr_packet_time = int(round(time.time() * 1000))
+            #print "request frame: " + str(curr_packet_time-self.rframe_latency)
+            self.rframe_latency  =  curr_packet_time
             global outputBuf
             global outputBufLock
             if (len(outputBuf) > 0) and not outputBufLock:
@@ -280,8 +283,7 @@ if __name__=="__main__":
                 SendPacketMode = True
             elif cmd == "ipv6":
                 print "injecting one packet udp packet by converting lowpan packet"
-                str_lowpanbytes = lowpan_udp_packet
-                str_lowpanbytes = ''.join(chr(i) for i in [0x14,0x15,0x92,0x0,0x0,0x0,0x0,0x2]+str_lowpanbytes)
+                str_lowpanbytes = "Yadhunandana"
                 #Here subtracting one because 0x7e is not included in the length, Adding to two to include checksum bytes.
                 command_inject_udp_packet[1] = len(command_inject_udp_packet) + len(str_lowpanbytes)-1 + 2;
                 #Here I will calculate 16-bit checksum for the whole packet then, I will attach it to end of the packet.
@@ -345,7 +347,7 @@ if __name__=="__main__":
                     outputBufLock = True
                     outputBuf += [str(command_inject_udp_packet)+temp+str(chsum)]
                     outputBufLock  = False
-                time.sleep(0.1)
+                time.sleep(0.02)
     except KeyboardInterrupt:
         #socketThread_object.close()
         moteProbe_object.close()
