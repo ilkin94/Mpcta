@@ -45,8 +45,8 @@ static const uint8_t ebIEsBytestream[] = {
 #define US_PER_TICK                 PORT_TICS_PER_MS // number of us per 32kHz clock tick, Yadhu modified to match z1 mote values.
 #define EBPERIOD                     1 // in seconds: 2 -> EB every 2 seconds, Yadhu changed to avoid desync, Because without ack beacons are necessary for synchronization
 #define MAXKAPERIOD               2000 // in slots: @15ms per slot -> ~30 seconds. Max value used by adaptive synchronization.
-//Yadhu increased to match new superframe size, Since frame size reduced more than half, DESYNCTIMEOUT increased two times.
-#define DESYNCTIMEOUT             (2333*2) // in slots: @15ms per slot -> ~35 seconds. A larger DESYNCTIMEOUT is needed if using a larger KATIMEOUT.
+//Yadhu increased to match new superframe size, Since frame size reduced more than half, DESYNCTIMEOUT increased three times.
+#define DESYNCTIMEOUT             (2333*3) // in slots: @15ms per slot -> ~35 seconds. A larger DESYNCTIMEOUT is needed if using a larger KATIMEOUT.
 #define LIMITLARGETIMECORRECTION     5 // threshold number of ticks to declare a timeCorrection "large"
 #define LENGTH_IEEE154_MAX         128 // max length of a valid radio packet  
 #define DUTY_CYCLE_WINDOW_LIMIT    (0xFFFFFFFF>>1) // limit of the dutycycle window
@@ -202,7 +202,7 @@ enum ieee154e_linkOption_enum {
 // TX
 #define DURATION_tt1 ieee154e_vars.lastCapturedTime+TsTxOffset-delayTx-maxTxDataPrepare
 #define DURATION_tt2 ieee154e_vars.lastCapturedTime+TsTxOffset-delayTx
-#define DURATION_tt3 ieee154e_vars.lastCapturedTime+TsTxOffset-delayTx+wdRadioTx
+#define DURATION_tt3 ieee154e_vars.lastCapturedTime+TsTxOffset-delayTx+wdRadioTx  //This value is for printing error, No need to optimize further.
 #define DURATION_tt4 ieee154e_vars.lastCapturedTime+wdDataDuration
 #define DURATION_tt5 ieee154e_vars.lastCapturedTime+TsTxAckDelay-TsShortGT-delayRx-maxRxAckPrepare
 #define DURATION_tt6 ieee154e_vars.lastCapturedTime+TsTxAckDelay-TsShortGT-delayRx

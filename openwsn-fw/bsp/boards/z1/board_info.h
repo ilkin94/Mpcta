@@ -61,14 +61,14 @@ to return the board's description.
 // time-slot related
 // Yadhu chnaged from 491 to 471, Changed from 471 to 428, Changed from 471 to 428 optimizing ti2 duration,
 // changed to 364 from 428 due to smaller payload(Max packet len 97 bytes)
-#define PORT_TsSlotDuration                 192   // counter counts one extra count, see datasheet,
+#define PORT_TsSlotDuration                 190   // counter counts one extra count, see datasheet,
 // execution speed related
 #define PORT_maxTxDataPrepare               45    // 2014us (measured 746us)
 #define PORT_maxRxAckPrepare                20    //  305us (measured  83us)
 #define PORT_maxRxDataPrepare               33    // 1007us (measured  84us) //Changed to 23 from 33
 #define PORT_maxTxAckPrepare                40    //  305us (measured 219us)
 // radio speed related
-#define PORT_delayTx                        14     //  214us (measured 219us)
+#define PORT_delayTx                        12     //  214us (measured 219us)
 #define PORT_delayRx                        0     //    0us (can not measure)
 // radio watchdog
 

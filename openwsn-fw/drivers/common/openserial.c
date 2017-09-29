@@ -528,23 +528,23 @@ void isr_openserial_rx() {
     //openserial_printf(&ticks,4,'D');
     uint8_t data = uart_readByte();
     //Measurement code starts here
-    ticks_measure_vars.received_bytes++;
-    if(data == START_FLAG)
-    {
-        ticks_measure_vars.required_ticks = opentimers_getValue();
-        //openserial_printf(&ticks_measure_vars.required_ticks,4,'D');
-    }
-    else if(ticks_measure_vars.received_bytes == 2) //2 Because second byte contains the length byte.
-    {
-        ticks_measure_vars.packet_len = data;
-    }
-    else if(ticks_measure_vars.received_bytes == ticks_measure_vars.packet_len + 1)
-    {
-        ticks = opentimers_getValue();
-        //These ticks are for packet_len-1 bytes, Because we started considering ticks after first byte is received
-        ticks_measure_vars.required_ticks = ticks - ticks_measure_vars.required_ticks;
-        //openserial_printf(&ticks_measure_vars.required_ticks,4,'D');
-    }
+    // ticks_measure_vars.received_bytes++;
+    // if(data == START_FLAG)
+    // {
+    //     ticks_measure_vars.required_ticks = opentimers_getValue();
+    //     //openserial_printf(&ticks_measure_vars.required_ticks,4,'D');
+    // }
+    // else if(ticks_measure_vars.received_bytes == 2) //2 Because second byte contains the length byte.
+    // {
+    //     ticks_measure_vars.packet_len = data;
+    // }
+    // else if(ticks_measure_vars.received_bytes == ticks_measure_vars.packet_len + 1)
+    // {
+    //     ticks = opentimers_getValue();
+    //     //These ticks are for packet_len-1 bytes, Because we started considering ticks after first byte is received
+    //     ticks_measure_vars.required_ticks = ticks - ticks_measure_vars.required_ticks;
+    //     //openserial_printf(&ticks_measure_vars.required_ticks,4,'D');
+    // }
     //Measurement code ends here
     circular_buffer_push(&rx_buffer,data);
 }
