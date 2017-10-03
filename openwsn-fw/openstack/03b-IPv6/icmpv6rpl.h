@@ -13,7 +13,7 @@
 //=========================== define ==========================================
 
 #define TIMER_DIO_TIMEOUT         10  // seconds
-#define TIMER_DAO_TIMEOUT         60  // seconds
+#define TIMER_DAO_TIMEOUT         30  // seconds
 
 // Non-Storing Mode of Operation (1)
 #define MOP_DIO_A                 0<<5
