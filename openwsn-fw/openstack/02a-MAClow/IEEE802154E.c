@@ -1913,7 +1913,11 @@ port_INLINE void activity_ri5(PORT_TIMER_WIDTH capturedTime) {
             if ((idmanager_getIsDAGroot()==FALSE && 
                 icmpv6rpl_isPreferredParent(&(ieee154e_vars.dataReceived->l2_nextORpreviousHop))) ||
                 IEEE802154_security_isConfigured() == FALSE) {
-            synchronizePacket(ieee154e_vars.syncCapturedTime);
+                //Synchronize only if packet is BEACON packet,
+                //This is a bug fix, when too many packets are sent trying sync for every packet causes device reset.
+                //Took lot of time to identify :_(
+               if(ieee154e_vars.dataReceived->l2_frameType == IEEE154_TYPE_BEACON)
+                  synchronizePacket(ieee154e_vars.syncCapturedTime);
             }
             // indicate reception to upper layer (no ACK asked)
             notif_receive(ieee154e_vars.dataReceived);

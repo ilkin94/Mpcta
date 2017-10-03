@@ -107,6 +107,9 @@ typedef struct {
     // input
     uint8_t             reqFrame[1+1+1];
     uint8_t             reqFrameIdx;
+    bool busy_tx;
+    uint8_t bytes_transmitted,tx_pkt_len;
+    uint16_t total_bytes_transmitted;
 } openserial_vars_t;
 
 /**

@@ -110,6 +110,10 @@ ticks_measure_vars_t ticks_measure_vars;
 
 void openserial_init() {
 
+    memset(&openserial_vars,0,sizeof(openserial_vars_t));
+    // clear local variables
+    memset(&udp_inject_vars,0,sizeof(udp_inject_vars_t));
+    memset(&ticks_measure_vars,0,sizeof(ticks_measure_vars_t));
 
     openserial_vars.reqFrame[0] = START_FLAG;
     openserial_vars.reqFrame[1] = 0x02;             //Length of request frame
@@ -121,10 +125,6 @@ void openserial_init() {
         isr_openserial_tx,
         isr_openserial_rx
     );
-
-    // clear local variables
-    memset(&udp_inject_vars,0,sizeof(udp_inject_vars_t));
-    memset(&ticks_measure_vars,0,sizeof(ticks_measure_vars_t));
 
     // register at UDP stack
     udp_inject_vars.desc.port              = WKP_UDP_OPENSERIAL;
@@ -148,6 +148,10 @@ void openserial_startInput() {
     uart_enableInterrupts();       // Enable USCI_A1 TX & RX interrupt
     DISABLE_INTERRUPTS();
 
+    openserial_vars.busy_tx = FALSE;
+    openserial_vars.bytes_transmitted = 0;
+    openserial_vars.tx_pkt_len = 0;
+
     openserial_vars.reqFrameIdx    = 0;
     openserial_vars.mode = MODE_INPUT;
     //ticks_measure_vars.required_ticks = opentimers_getValue();
@@ -158,6 +162,7 @@ void openserial_startInput() {
 void openserial_startOutput() {
 
     uint8_t data = NULL;
+    uint16_t buffer_level = 0;
     INTERRUPT_DECLARATION();
     //=== flush TX buffer,
     uart_clearTxInterrupts();
@@ -165,11 +170,22 @@ void openserial_startOutput() {
     uart_enableInterrupts();           // Enable USCI_A1 TX & RX interrupt
 
     DISABLE_INTERRUPTS();
-    openserial_vars.mode = MODE_OUTPUT;
-    if(circular_buffer_pop(&tx_buffer,&data))
-        uart_writeByte(data);
-
+    buffer_level = tx_buffer.fill_level;
     ENABLE_INTERRUPTS();
+
+    if(tx_buffer.buffer[tx_buffer.tail+1] < buffer_level && buffer_level > 0)
+    {
+        DISABLE_INTERRUPTS();
+        openserial_vars.mode = MODE_OUTPUT;
+        if(!circular_buffer_pop(&tx_buffer,&data))
+            leds_error_toggle();
+        openserial_vars.busy_tx = TRUE;
+        openserial_vars.bytes_transmitted = 1;
+        openserial_vars.total_bytes_transmitted = 1;
+        openserial_vars.tx_pkt_len = tx_buffer.buffer[tx_buffer.tail];//tail here, not tail+1, since 0x7e is already popped
+        uart_writeByte(data);
+        ENABLE_INTERRUPTS();
+    }
 }
 
 void openserial_stop() {
@@ -253,7 +269,10 @@ uint8_t openserial_printf(char *data_ptr , uint8_t data_len,uint8_t type) {
     for(idx = 0 ;idx < data_len; idx++) 
     {
         if(!circular_buffer_push(&tx_buffer,data_ptr[idx]))
+        {
+            leds_error_on();
             break; // Signifies that ring buffer is full, break the loop
+        }
     }
 
     ENABLE_INTERRUPTS();
@@ -495,8 +514,7 @@ uint8_t openserial_getInputBuffer(uint8_t* bufferToWrite, uint8_t maxNumBytes)
  *  executed in ISR, called from scheduler.c}
  */
 void isr_openserial_tx() {
-
-    uint8_t data = NULL;
+    uint8_t bytes = 0;
     switch (openserial_vars.mode)
     {
         case MODE_INPUT:
@@ -505,8 +523,37 @@ void isr_openserial_tx() {
                 uart_writeByte(openserial_vars.reqFrame[openserial_vars.reqFrameIdx]);
             break;
         case MODE_OUTPUT:
-            if(circular_buffer_pop(&tx_buffer,&data))
-                uart_writeByte(data);
+             //This means one pkt tx is finished. +1 to to take 0x7E in to account.
+            if(openserial_vars.bytes_transmitted == openserial_vars.tx_pkt_len+1)
+            {
+                //leds_error_toggle();
+                //  //This means enough bytes are present in the buffer, Also check buffer has sum values.
+                if(tx_buffer.buffer[tx_buffer.tail+1] > tx_buffer.fill_level && tx_buffer.fill_level > 0 && \
+                    //This logic to check whether we will be able to finish this packet in this slot
+                    openserial_vars.total_bytes_transmitted+tx_buffer.buffer[tx_buffer.tail+1] < 120)
+                {
+                    if(!circular_buffer_pop(&tx_buffer,&bytes))
+                        leds_error_toggle();
+                    openserial_vars.busy_tx = TRUE;
+                    openserial_vars.bytes_transmitted = 1;
+                    openserial_vars.tx_pkt_len = tx_buffer.buffer[tx_buffer.tail+1];
+                    uart_writeByte(bytes);
+                    return;
+                }
+                else
+                {
+                    openserial_vars.busy_tx = FALSE;
+                    openserial_vars.mode = MODE_OFF;
+                    openserial_vars.bytes_transmitted = 0;
+                    openserial_vars.total_bytes_transmitted = 0;
+                    return;
+                }
+            }
+            if(!circular_buffer_pop(&tx_buffer,&bytes))
+                leds_error_toggle();
+            uart_writeByte(bytes);
+            openserial_vars.bytes_transmitted++;
+            openserial_vars.total_bytes_transmitted++;
             break;
         case MODE_OFF:
             default:
@@ -572,6 +619,7 @@ port_INLINE uint8_t circular_buffer_push(circBuf_t *buffer_ptr,uint8_t dataValue
         else
             openserial_printError(COMPONENT_OPENSERIAL,ERR_OUTPUT_BUFFER_OVERFLOW,\
                 (errorparameter_t)1,(errorparameter_t)tx_buffer.fill_level);
+        leds_error_on();
         return FALSE;
     }
     buffer_ptr->buffer[buffer_ptr->head] = dataValue;
