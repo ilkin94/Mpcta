@@ -23,10 +23,10 @@ class ParserData():
             print "input data "+a
         
         #source and destination of the message
-        dest = input[0:8]
+        #dest = input[0:8]
         
         #source is elided!!! so it is not there.. check that.
-        source = input[8:16]
+        source = input[0:8]
         if self.debug:
             a=":".join(hex(c) for c in dest)
             print "destination address of the packet is {0} "+a
@@ -34,9 +34,8 @@ class ParserData():
             a=":".join(hex(c) for c in source)
             print "source address (just previous hop) of the packet is {0} "+a
         
-        input = input[16:]
+        input = input[8:]
         if self.debug:
             a=":".join(hex(c) for c in input)
             print "packet without source,dest and asn: "+a
-       
         return (source, input)

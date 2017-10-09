@@ -28,6 +28,10 @@ command_reset_board = bytearray([0x7e,0x03,0x43,0x08])
 
 command_get_buff_stat = bytearray([0x7e,0x03,0x43,0xff])
 
+command_test = bytearray([0x00,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,
+0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,
+0x02,0x02,0x02,0x02,0x01])
+
 #this is just a temporary hardcoded data, has to be read from
 #sockets later
 udp_packet_data = "200"
@@ -87,7 +91,8 @@ class moteProbe(threading.Thread):
                 self.rxByte = self.serial.read(1)
                 if not self.rxByte:
                     continue
-                elif (int(binascii.hexlify(self.rxByte),16) == 0x7e) and not self.busyReceiving:
+                #print binascii.hexlify(self.rxByte)
+                if (int(binascii.hexlify(self.rxByte),16) == 0x7e) and not self.busyReceiving:
                     self.busyReceiving       = True
                     self.prevByte = self.rxByte
                     continue
@@ -136,8 +141,8 @@ class moteProbe(threading.Thread):
         #elif self.inputBuf[1] == 'E' and not (int(binascii.hexlify(self.inputBuf[3]),16) == 0x09) \
                 #and not (int(binascii.hexlify(self.inputBuf[3]),16) == 0x1c) :
         elif self.inputBuf[1] == 'E':
-            if (int(binascii.hexlify(self.inputBuf[3]),16) == 0x09) \
-                or (int(binascii.hexlify(self.inputBuf[3]),16) == 0x1c) :
+            if (int(binascii.hexlify(self.inputBuf[3]),16) == 0x09): #\
+                #or (int(binascii.hexlify(self.inputBuf[3]),16) == 0x1c) :
                     print "error msg: "+":".join("{:02x}".format(ord(c)) for c in self.inputBuf[2:])
             else:
                 print "------------------------------------------------------------------------"
@@ -156,6 +161,7 @@ class moteProbe(threading.Thread):
                 dataToWrite = outputBuf.pop(0)
                 outputBufLock = False
                 print "injecting: "+":".join("{:02x}".format(ord(c)) for c in dataToWrite)
+                print len(dataToWrite)
                 self.serial.write(dataToWrite)
         self.inputBuf = ''
 
@@ -324,6 +330,12 @@ if __name__=="__main__":
                 outputBufLock = True
                 outputBuf += [str(command_reset_board + chsum)];
                 outputBufLock  = False
+            elif cmd == "test":
+                print "sending test command"
+                if not outputBufLock:
+                    outputBufLock = True
+                    outputBuf += [str(command_test)]
+                    outputBufLock  = False
             elif cmd == "quit":
                 print "exiting"
                 break;
@@ -347,7 +359,7 @@ if __name__=="__main__":
                     outputBufLock = True
                     outputBuf += [str(command_inject_udp_packet)+temp+str(chsum)]
                     outputBufLock  = False
-                time.sleep(0.02)
+                time.sleep(0.03)
     except KeyboardInterrupt:
         #socketThread_object.close()
         moteProbe_object.close()

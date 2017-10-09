@@ -88,7 +88,7 @@ if __name__=="__main__":
             b = datetime.now()
             c = b - a
             if c.microseconds < min_value:
-				min_value = c.microseconds
+            min_value = c.microseconds
             print "c.microseconds: "+ str(c.microseconds)
             print len(command_test)
             #print int(binascii.hexlify(rxByte),16)
