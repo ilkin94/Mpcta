@@ -30,7 +30,12 @@ TeraTerm):
 //=========================== prototypes ======================================
 void cb_uartTxDone(void);
 void cb_uartRxCb(void);
+uint16_t counter=0;
+uint16_t ticks = 0;
 
+uint8_t test[] = {0xff,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,
+0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,
+0x02,0x02,0x02,0x02,0x02,0xee};
 //=========================== main ============================================
 
 /**
@@ -44,24 +49,46 @@ int mote_main(void) {
    // setup UART
    uart_setCallbacks(cb_uartTxDone,cb_uartRxCb);
    uart_enableInterrupts();
-   
+   //uart_writeByte(test[0]);
+   //counter++;
    while(1);
 }
 
 //=========================== callbacks =======================================
 void cb_uartTxDone(void) {
-   leds_sync_toggle();
+  // if(counter == 1)
+  // {
+  //   ticks = sctimer_readCounter();
+     leds_error_toggle();
+  // }
+  // else if(counter < 62)
+  // {
+  //     uart_writeByte(test[counter]);
+  //     counter++;
+  // } else if(counter == 62)
+  // {
+  //     ticks = sctimer_readCounter()-ticks;
+  //     uart_writeByte(ticks & 0xff);
+  //     counter++;
+  // }else
+  //     return;
 }
 
 void cb_uartRxCb(void) {
    uint8_t byte;
-   
    // toggle LED
    leds_error_toggle();
-   
    // read received byte
    byte = uart_readByte();
-   
-   // echo that byte over serial
+
    uart_writeByte(byte);
+
+    if(byte == 0xff)
+        ticks = sctimer_readCounter();
+    if(byte == 0xee) {
+        ticks = sctimer_readCounter()-ticks;
+        uart_writeByte(ticks & 0xff);
+        if(ticks > 255)
+          leds_error_toggle();
+    }
 }

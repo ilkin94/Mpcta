@@ -42,7 +42,7 @@ static const uint8_t ebIEsBytestream[] = {
 #define TXRETRIES                    3 // number of MAC retries before declaring failed
 #define TX_POWER                    31 // 1=-25dBm, 31=0dBm (max value)
 #define RESYNCHRONIZATIONGUARD       5 // in 32kHz ticks. min distance to the end of the slot to successfully synchronize
-#define US_PER_TICK                 PORT_TICS_PER_MS // number of us per 32kHz clock tick, Yadhu modified to match z1 mote values.
+#define US_PER_TICK                 30 // number of us per 32kHz clock tick,
 #define EBPERIOD                     1 // in seconds: 2 -> EB every 2 seconds, Yadhu changed to avoid desync, Because without ack beacons are necessary for synchronization
 #define MAXKAPERIOD               2000 // in slots: @15ms per slot -> ~30 seconds. Max value used by adaptive synchronization.
 //Yadhu increased to match new superframe size, Since frame size reduced more than half, DESYNCTIMEOUT increased three times.

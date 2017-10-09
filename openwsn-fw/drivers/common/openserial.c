@@ -77,7 +77,7 @@ enum data_commands
 
 typedef struct {
     uint8_t received_bytes;
-    uint32_t  required_ticks;
+    uint16_t  required_ticks;
     uint8_t packet_len;
 } ticks_measure_vars_t;
 
@@ -154,9 +154,10 @@ void openserial_startInput() {
 
     openserial_vars.reqFrameIdx    = 0;
     openserial_vars.mode = MODE_INPUT;
-    //ticks_measure_vars.required_ticks = opentimers_getValue();
+
     uart_writeByte(openserial_vars.reqFrame[openserial_vars.reqFrameIdx]);
     ENABLE_INTERRUPTS();
+    //ticks_measure_vars.required_ticks = sctimer_readCounter();
 }
 
 void openserial_startOutput() {
@@ -567,7 +568,7 @@ void isr_openserial_tx() {
  *  executed in ISR, called from scheduler.c}
  */
 void isr_openserial_rx() {
-    uint32_t ticks;
+    // uint32_t ticks;
     // stop if I'm not in input mode
     if (openserial_vars.mode!=MODE_INPUT)
         return;
@@ -575,22 +576,22 @@ void isr_openserial_rx() {
     //openserial_printf(&ticks,4,'D');
     uint8_t data = uart_readByte();
     //Measurement code starts here
-    // ticks_measure_vars.received_bytes++;
+    //ticks_measure_vars.received_bytes++;
     // if(data == START_FLAG)
     // {
     //     ticks_measure_vars.required_ticks = opentimers_getValue();
     //     //openserial_printf(&ticks_measure_vars.required_ticks,4,'D');
     // }
-    // else if(ticks_measure_vars.received_bytes == 2) //2 Because second byte contains the length byte.
+    // if(ticks_measure_vars.received_bytes == 2) //2 Because second byte contains the length byte.
     // {
     //     ticks_measure_vars.packet_len = data;
     // }
-    // else if(ticks_measure_vars.received_bytes == ticks_measure_vars.packet_len + 1)
+    // else if(ticks_measure_vars.received_bytes == ticks_measure_vars.packet_len + 1 && ticks_measure_vars.packet_len)
     // {
-    //     ticks = opentimers_getValue();
     //     //These ticks are for packet_len-1 bytes, Because we started considering ticks after first byte is received
-    //     ticks_measure_vars.required_ticks = ticks - ticks_measure_vars.required_ticks;
-    //     //openserial_printf(&ticks_measure_vars.required_ticks,4,'D');
+    //     ticks_measure_vars.required_ticks = sctimer_readCounter() - ticks_measure_vars.required_ticks;
+    //     openserial_printf(&ticks_measure_vars.required_ticks,2,'D');
+    //     leds_error_toggle();
     // }
     //Measurement code ends here
     circular_buffer_push(&rx_buffer,data);
