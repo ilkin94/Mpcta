@@ -617,6 +617,11 @@ owerror_t sixtop_send_internal(
     );
     // change owner to IEEE802154E fetches it from queue
     msg->owner  = COMPONENT_SIXTOP_TO_IEEE802154E;
+    // if(msg->l4_protocol == IANA_UDP)
+    // {
+    //     uint16_t ticks = opentimers_measure_ticks(0,1);
+    //     openserial_printf(&ticks,2,'D');
+    // }
     return E_SUCCESS;
 }
 

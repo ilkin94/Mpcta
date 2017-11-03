@@ -467,3 +467,39 @@ void opentimers_timer_callback(void){
     sctimer_setCompare(opentimers_vars.currentTimeout);
     opentimers_vars.running        = TRUE;
 }
+
+/**
+ * @brief      { function useful for measuring the delays in the stack }
+ *
+ * @param[in]  id    useful for supporting multiple measurements
+ * @param[in]  mode  storing mode or getting the difference mode
+ *
+ * @return     { description_of_the_return_value }
+ */
+uint16_t  opentimers_measure_ticks(uint8_t id,bool mode)
+{
+    static uint16_t measure_ticks0 = 0,measure_ticks1 = 0;
+    switch(mode)
+    {
+        case 0:
+            if(id == 0)
+                measure_ticks0 = sctimer_readCounter();
+            if(id == 1)
+                measure_ticks1 = sctimer_readCounter();
+            break;
+        case 1:
+            if(id == 0) 
+                measure_ticks0 = sctimer_readCounter() - measure_ticks0;
+            if(id == 1)
+                measure_ticks1 = sctimer_readCounter() - measure_ticks1;
+            break;
+        default:
+            return 0;
+    }
+    if(id == 0)
+        return measure_ticks0;
+    if(id == 1)
+        return measure_ticks1;
+
+    return 0;
+}

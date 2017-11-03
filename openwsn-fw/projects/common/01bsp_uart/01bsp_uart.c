@@ -59,7 +59,7 @@ void cb_uartTxDone(void) {
   // if(counter == 1)
   // {
   //   ticks = sctimer_readCounter();
-     leds_error_toggle();
+     // leds_error_toggle();
   // }
   // else if(counter < 62)
   // {
@@ -81,14 +81,9 @@ void cb_uartRxCb(void) {
    // read received byte
    byte = uart_readByte();
 
-   uart_writeByte(byte);
-
-    if(byte == 0xff)
-        ticks = sctimer_readCounter();
-    if(byte == 0xee) {
-        ticks = sctimer_readCounter()-ticks;
-        uart_writeByte(ticks & 0xff);
-        if(ticks > 255)
-          leds_error_toggle();
-    }
+  //uart_writeByte(byte);
+  if(byte == 0xee)
+  {
+       uart_writeByte(byte);
+  }
 }

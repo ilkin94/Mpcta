@@ -96,6 +96,7 @@ PORT_TIMER_WIDTH opentimers_getValue(void);
 PORT_TIMER_WIDTH opentimers_getCurrentTimeout(void);
 bool             opentimers_isRunning(opentimers_id_t id);
 void             opentimers_setPriority(opentimers_id_t id, uint8_t priority);
+uint16_t         opentimers_measure_ticks(uint8_t id,bool mode);
 /**
 \}
 \}

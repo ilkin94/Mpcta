@@ -20,7 +20,7 @@ if __name__=="__main__":
 
     file_ref.close()
 
-    #sample count is how many samples are taken for any one payload len, any pyalod length will do.
+    #sample count is how many samples are taken for any one payload len, any payload length will do.
     sample_count = len(data['6'])
 
     confidence_interval_dict = {}
@@ -36,7 +36,7 @@ if __name__=="__main__":
         list_error_margin.append((mean-error_margin,mean+error_margin))
         x_axis.append(int(key))
 
-    #print list_error_margin
+    print confidence_interval_dict
     #print sample_means
 
     y_error = [(top-bot)/2 for top,bot in list_error_margin]
@@ -67,7 +67,7 @@ confidence interval(100 samples)""",markersize=2,capsize=2, elinewidth=1)
     for counter,option in enumerate(sample_means):
         error.append(sample_means[counter] - delay[counter])
         
-    #print np.mean(error)
+    print np.mean(error)
     
     axs.plot(x_axis,delay,'g.',label = 'Estimated delay',markersize=5)
     axs.plot(x_axis,error,'r.',label = 'Platform specific delay',markersize=5)

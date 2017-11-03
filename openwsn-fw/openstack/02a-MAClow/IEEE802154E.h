@@ -42,11 +42,10 @@ static const uint8_t ebIEsBytestream[] = {
 #define TXRETRIES                    3 // number of MAC retries before declaring failed
 #define TX_POWER                    31 // 1=-25dBm, 31=0dBm (max value)
 #define RESYNCHRONIZATIONGUARD       5 // in 32kHz ticks. min distance to the end of the slot to successfully synchronize
-#define US_PER_TICK                 30 // number of us per 32kHz clock tick,
-#define EBPERIOD                     1 // in seconds: 2 -> EB every 2 seconds, Yadhu changed to avoid desync, Because without ack beacons are necessary for synchronization
+#define US_PER_TICK                 30 // number of us per 32kHz clock tick
+#define EBPERIOD                     2 // in seconds: 2 -> EB every 2 seconds
 #define MAXKAPERIOD               2000 // in slots: @15ms per slot -> ~30 seconds. Max value used by adaptive synchronization.
-//Yadhu increased to match new superframe size, Since frame size reduced more than half, DESYNCTIMEOUT increased three times.
-#define DESYNCTIMEOUT             (2333*3) // in slots: @15ms per slot -> ~35 seconds. A larger DESYNCTIMEOUT is needed if using a larger KATIMEOUT.
+#define DESYNCTIMEOUT             2333 // in slots: @15ms per slot -> ~35 seconds. A larger DESYNCTIMEOUT is needed if using a larger KATIMEOUT.
 #define LIMITLARGETIMECORRECTION     5 // threshold number of ticks to declare a timeCorrection "large"
 #define LENGTH_IEEE154_MAX         128 // max length of a valid radio packet  
 #define DUTY_CYCLE_WINDOW_LIMIT    (0xFFFFFFFF>>1) // limit of the dutycycle window
@@ -166,8 +165,8 @@ enum ieee154e_atomicdurations_enum {
    TsTxAckDelay              =   33,                  //  1000us
    TsShortGT                 =    9,                  //   500us, The standardlized value for this is 400/2=200us(7ticks). Currectly 7 doesn't work for short packet, change it back to 7 when found the problem.
 #else
-   TsTxOffset                =   68,                   //  4000us //Yadhu modified from 131 to 111 to reduce latency,Changed from 111 to 68
-   TsLongGT                  =   20,                  //  1300us //Guard time changed from 43 ticks to 10 ticks
+   TsTxOffset                =  131,                  //  4000us
+   TsLongGT                  =   43,                  //  1300us
    TsTxAckDelay              =  151,                  //  4606us
    TsShortGT                 =   16,                  //   500us
 #endif
@@ -181,8 +180,8 @@ enum ieee154e_atomicdurations_enum {
    delayTx                   =  PORT_delayTx,         // between GO signal and SFD
    delayRx                   =  PORT_delayRx,         // between GO signal and start listening
    // radio watchdog
-   wdRadioTx                 =   36,                  //  1000us (needs to be >delayTx)
-   wdDataDuration            =  105,                  //  5000us (measured 4280us with max payload), Changed to 100 from 164
+   wdRadioTx                 =   33,                  //  1000us (needs to be >delayTx)
+   wdDataDuration            =  164,                  //  5000us (measured 4280us with max payload)
 #ifdef SLOTDURATION_10MS
    wdAckDuration             =   80,                  //  2400us (measured 1000us)
 #else
@@ -202,7 +201,7 @@ enum ieee154e_linkOption_enum {
 // TX
 #define DURATION_tt1 ieee154e_vars.lastCapturedTime+TsTxOffset-delayTx-maxTxDataPrepare
 #define DURATION_tt2 ieee154e_vars.lastCapturedTime+TsTxOffset-delayTx
-#define DURATION_tt3 ieee154e_vars.lastCapturedTime+TsTxOffset-delayTx+wdRadioTx  //This value is for printing error, No need to optimize further.
+#define DURATION_tt3 ieee154e_vars.lastCapturedTime+TsTxOffset-delayTx+wdRadioTx
 #define DURATION_tt4 ieee154e_vars.lastCapturedTime+wdDataDuration
 #define DURATION_tt5 ieee154e_vars.lastCapturedTime+TsTxAckDelay-TsShortGT-delayRx-maxRxAckPrepare
 #define DURATION_tt6 ieee154e_vars.lastCapturedTime+TsTxAckDelay-TsShortGT-delayRx

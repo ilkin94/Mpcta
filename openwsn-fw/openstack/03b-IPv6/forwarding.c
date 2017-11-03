@@ -197,7 +197,7 @@ owerror_t forwarding_send(OpenQueueEntry_t* msg) {
                 dac,
                 dam,
                 p_dest,
-                p_src,            
+                p_src,
                 PCKTSEND  
                 );
     // both of them are compressed
@@ -514,7 +514,7 @@ owerror_t forwarding_send_internal_RoutingTable(
 }
 
 /**
-\brief Send a packet using the source rout to find the next hop.
+\brief Send a packet using the source route to find the next hop.
 
 \note This is always called for packets being forwarded.
 

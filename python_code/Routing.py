@@ -617,6 +617,7 @@ class Routing():
                 if len(lowpan['route'])<2:
                     # no source route could be found
                     print ':'.join(hex(i) for i in lowpan['dst_addr'])
+                    print "no source route found"
                     # TODO: return ICMPv6 message
                     return
 

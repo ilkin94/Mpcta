@@ -7,18 +7,26 @@ import binascii
 import sys
 import time
 from datetime import datetime
+import json
 
 command_test = bytearray([
 0xff,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,
+0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,
+0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,
+0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,
+0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,
+0x02,0x02,0x02,0x02,0x02,0x02,0x02,#0x02,0x02,0x02,
 0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,
-#0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,
-#0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,
-0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0xee
+0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0xee
 ])
 #command_test1 = bytearray([0xff,0x02,0x02,0x02,0xee])
 latency = [0.0,0.0]
 min_value = 10000000
 max_value = 0.0
+
+measured_data = []
+payload_length = 1
+counter = 0;
 
 
 def running_mean(x):
@@ -46,7 +54,7 @@ if __name__=="__main__":
     print "  quit to exit "
     
     try:
-        serial = serial.Serial("/dev/ttyUSB0",'115200',timeout=100)
+        serial = serial.Serial("/dev/ttyUSB0",'115200')
     except Exception as err:
         print err
     counter = 0
@@ -80,26 +88,47 @@ if __name__=="__main__":
             #else:
                 #print "unknown command"
             a = datetime.now()
-            #print int(round(time.time()))
-            serial.write(command_test)
+            #serial.write(bytearray([0xee]))
+            serial.write(command_test[len(command_test)-payload_length:])
             #if counter == 0:
             rxByte = serial.read(1)
             #counter = counter + 1
             b = datetime.now()
             c = b - a
-            if c.microseconds < min_value:
-            min_value = c.microseconds
             print "c.microseconds: "+ str(c.microseconds)
-            print len(command_test)
+            measured_data.append(int(c.microseconds))
+            if(counter == 500):
+                print measured_data
+                file_name = "/home/student/iwsn/iwsn_repo/python_code/new_measurements/measurement_serial_data" + str(payload_length) +".json"
+                f = open(file_name,'w')
+                f.write(json.dumps(measured_data))
+                f.close()
+                counter = 0;
+                measured_data = []
+                if(payload_length < 127):
+                    payload_length = payload_length + 1
+                    print "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+                    print "new payload_length: " + str(payload_length)
+                    print "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+                else:
+                    print "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+                    print "exiting"
+                    print "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+                    exit()
+            #print len(command_test)
             #print int(binascii.hexlify(rxByte),16)
             #latency[1] = latency[1] + 1.0
             #running_mean(c.microseconds)
             #print "latency: "+ str(latency[0])
-            print "min value: "+ str(min_value)
             #print "max_value: "+ str(max_value)
             #rxByte = serial.read(1)
-            #time.sleep(0.0000005);
+            counter = counter+1
+            #if(counter == 51):
+                #print measured_data
+                #print json.dumps(measured_data)
+                #exit()
             #break
+            time.sleep(0.001)
     except KeyboardInterrupt:
         exit()
 

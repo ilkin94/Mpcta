@@ -50,9 +50,6 @@ bool verify_checksum();
 // misc
 void openserial_board_reset_cb(opentimers_id_t id);
 
-owerror_t measure_timer_timeout(opentimers_id_t id);
-
-
 /**
  * {These values define the command types}
  */
@@ -75,20 +72,20 @@ enum data_commands
     INJECT_TCP_PACKET
 };
 
-typedef struct {
-    uint8_t received_bytes;
-    uint16_t  required_ticks;
-    uint8_t packet_len;
-} ticks_measure_vars_t;
-
 static const uint8_t packet_dst_addr[]   = {
    0xbb, 0xbb, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01
+   0, 18, 75, 0, 6, 21, 164, 137
 };
 
 /*
  * Local variables (Variables used within this file)
  */
+//Structure useful for measuring the delays in the stack
+typedef struct {
+   uint16_t  required_ticks;
+   uint8_t received_bytes;
+   uint8_t packet_len;
+} ticks_measure_vars_t;
 
 openserial_vars_t openserial_vars;
 
@@ -102,8 +99,10 @@ CIRCBUF_DEF(rx_buffer,SERIAL_INPUT_BUFFER_SIZE);
 
 udp_inject_vars_t udp_inject_vars;
 
+bool isPacket = FALSE;
+
 //Received byte count, For measuring the time taken to receive a frame serially
-ticks_measure_vars_t ticks_measure_vars;
+//ticks_measure_vars_t ticks_measure_vars;
 //=========================== public ==========================================
 
 //===== admin
@@ -113,7 +112,7 @@ void openserial_init() {
     memset(&openserial_vars,0,sizeof(openserial_vars_t));
     // clear local variables
     memset(&udp_inject_vars,0,sizeof(udp_inject_vars_t));
-    memset(&ticks_measure_vars,0,sizeof(ticks_measure_vars_t));
+    //memset(&ticks_measure_vars,0,sizeof(ticks_measure_vars_t));
 
     openserial_vars.reqFrame[0] = START_FLAG;
     openserial_vars.reqFrame[1] = 0x02;             //Length of request frame
@@ -184,6 +183,12 @@ void openserial_startOutput() {
         openserial_vars.bytes_transmitted = 1;
         openserial_vars.total_bytes_transmitted = 1;
         openserial_vars.tx_pkt_len = tx_buffer.buffer[tx_buffer.tail];//tail here, not tail+1, since 0x7e is already popped
+        if(isPacket)
+        {
+            uint16_t ticks = opentimers_measure_ticks(0,1);
+            openserial_printf(&ticks,2,'D');
+            isPacket = FALSE;
+        }
         uart_writeByte(data);
         ENABLE_INTERRUPTS();
     }
@@ -222,7 +227,7 @@ void openserial_stop() {
     rx_buffer.fill_level = 0;
     ENABLE_INTERRUPTS();
     //Clearing the stats of previous serial packet
-    memset(&ticks_measure_vars,0,sizeof(ticks_measure_vars_t));
+    //memset(&ticks_measure_vars,0,sizeof(ticks_measure_vars_t));
     return;
 }
 
@@ -237,7 +242,6 @@ bool verify_checksum() {
      {
         serial_packet_loss_counter++;
         openserial_printf(&serial_packet_loss_counter,2,SERIAL_MSG_ERR);
-        //openserial_printf(&calc_chsum,2,'E');
          return FALSE;
      }
     return TRUE;
@@ -257,6 +261,9 @@ uint8_t openserial_printf(char *data_ptr , uint8_t data_len,uint8_t type) {
 
     DISABLE_INTERRUPTS();
 
+    if(type == 'P')
+        isPacket = TRUE;
+
     if(!circular_buffer_push(&tx_buffer,START_FLAG))
         leds_error_on();
 
@@ -267,12 +274,12 @@ uint8_t openserial_printf(char *data_ptr , uint8_t data_len,uint8_t type) {
         leds_error_on();
 
     //Here i am going to fill the tx_buffer which will be eventually printed to serial terminal.
-    for(idx = 0 ;idx < data_len; idx++) 
+    for(idx = 0 ;idx < data_len; idx++)
     {
         if(!circular_buffer_push(&tx_buffer,data_ptr[idx]))
         {
             leds_error_on();
-            break; // Signifies that ring buffer is full, break the loop
+            break; //Signifies that ring buffer is full, break the loop
         }
     }
 
@@ -437,6 +444,7 @@ uint8_t send_response_packet(uint8_t *data,uint8_t length)
 
 uint8_t inject_udp_packet()
 {
+    leds_error_toggle();
     OpenQueueEntry_t*    pkt;
     // don't run if not synch
     if (ieee154e_isSynch() == FALSE) return;
@@ -468,7 +476,8 @@ uint8_t inject_udp_packet()
     packetfunctions_reserveHeaderSize(pkt,rx_buffer.buffer[rx_buffer.tail]-5);
     int tmp=rx_buffer.buffer[rx_buffer.tail]-5;
     memcpy(&pkt->payload[0],&rx_buffer.buffer[rx_buffer.tail]+3,rx_buffer.buffer[rx_buffer.tail]-5);
-
+    //leds_error_toggle();
+    //opentimers_measure_ticks(0,0);//start the measurement
     if ((openudp_send(pkt))==E_FAIL) {
         openqueue_freePacketBuffer(pkt);
         openserial_printError(COMPONENT_OPENSERIAL,ERR_PKT_INJECT_FAILED,
@@ -479,14 +488,14 @@ uint8_t inject_udp_packet()
 
 void udp_inject_sendDone(OpenQueueEntry_t* msg, owerror_t error) {
     uint8_t buff[] = {7,7,7,7,7};
-    openserial_printf(buff,sizeof(buff),SERIAL_MSG_DEB);
+    //openserial_printf(buff,sizeof(buff),SERIAL_MSG_DEB);
     openqueue_freePacketBuffer(msg);
 }
 
 void udp_inject_receive(OpenQueueEntry_t* pkt) {
     uint8_t buff[] = {8,8,8,8,8};
-    openserial_printf(buff,sizeof(buff),SERIAL_MSG_DEB);
-    openserial_printf(&pkt->payload[0],pkt->length,SERIAL_MSG_PKT);
+    //openserial_printf(buff,sizeof(buff),SERIAL_MSG_DEB);
+    //openserial_printf(&pkt->payload[0],pkt->length,SERIAL_MSG_PKT);
     openqueue_freePacketBuffer(pkt);
 }
 
@@ -577,9 +586,9 @@ void isr_openserial_rx() {
     uint8_t data = uart_readByte();
     //Measurement code starts here
     //ticks_measure_vars.received_bytes++;
-    // if(data == START_FLAG)
+    //  if(data == START_FLAG)
     // {
-    //     ticks_measure_vars.required_ticks = opentimers_getValue();
+    //      ticks_measure_vars.required_ticks = sctimer_readCounter();
     //     //openserial_printf(&ticks_measure_vars.required_ticks,4,'D');
     // }
     // if(ticks_measure_vars.received_bytes == 2) //2 Because second byte contains the length byte.
@@ -669,22 +678,9 @@ owerror_t openserial_printError(
     buff[1] = error_code;
     memcpy(buff+2,&arg1,2);
     memcpy(buff+4,&arg2,2);
-    openserial_printf(buff,6,SERIAL_MSG_ERR);
+    //openserial_printf(buff,6,SERIAL_MSG_ERR);
     return E_SUCCESS;
 }
-
-owerror_t measure_timer_timeout(opentimers_id_t id)
-{
-    // resynchronize by applying the new period
-    // opentimers_scheduleAbsolute(ticks_measure_vars.timerId,
-    //     (uint32_t) 10000,
-    //     sctimer_readCounter(),
-    //     TIME_MS,
-    //     ticks_measure_vars.callback
-    // );
-    openserial_printf("timeout",sizeof("timeout")-1,'D');
-}
-
 
 //Unused prototypes of functions.
 //=========================== prototypes ======================================

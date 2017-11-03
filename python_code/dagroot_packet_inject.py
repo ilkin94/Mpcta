@@ -9,6 +9,7 @@ import time
 from ParserData import ParserData
 from Routing import Routing
 from UDPPacket import UDPPacket
+import json
 
 #This command includes the prefix and the security key of the 802.15.4 network
 command_set_dagroot = bytearray([0x7e,0x1c,0x43,0x00,0x54,0xbb,0xbb,0x00,0x00,0x00,0x00,0x00,0x00,0x01,0x91,0x5b,0xc9,0xf1,0x5c,0x77,0x57,0x89,0x4f,0x4f,0x86,0x15,0xd8,0x14,0x25,0x27])
@@ -40,7 +41,20 @@ ipv6_ping_packet  = [0x60,0x9,0xbe,0x7b,0x0,0x12,0x3a,0x40,0xbb,0xbb,0x0,0x0,0x0
 ipv6_udp_packet =   [0x60,0xe,0x30,0x93,0x0,0xb,0x11,0x40,0xbb,0xbb,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x1,0xbb,0xbb,0x0,0x0,0x0,0x0,0x0,0x0,0x14,0x15,0x92,0x0,0x0,0x0,0x0,0x2,
 0xa7,0x64,0xf0,0xb2,0x0,0xb,0xe8,0x34,0x31,0x30,0x30]
 
-lowpan_udp_packet = [0xf1,0x7a,0x55,0x11,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x1,0x14,0x15,0x92,0x0,0x0,0x0,0x0,0x2,0xd5,0x9c,0xf0,0xb2,0x0,0xb,0xba,0xc8,0x31,0x30,0x30]
+lowpan_udp_packet = [0xf1,0x7a,0x55,0x11,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x1,0x14,0x15,0x92,0x0,0x0,0x0,0x0,0x2,0xd5,0x9c,0xf0,0xb2,0x0,0xb,0xba,0xc8,0x31,0x30,0x30,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,
+0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02]
+
+command_test = bytearray([
+#0xff,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,
+#0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,
+#0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,
+#0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,
+#0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,
+#0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,
+#0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,
+#0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,
+0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0xee
+])
 
 
 outputBufLock   = False
@@ -50,6 +64,9 @@ outputBuf       = []
 isDAGRoot       = False
 
 RoutingInstanceLock    = False
+
+latency = 0.0
+measured_data = []
 
 #Beginning of moteProbe Class definition
 
@@ -87,7 +104,7 @@ class moteProbe(threading.Thread):
         self.name                 = 'moteProbe@'+self.serialport
         
         try:
-            self.serial = serial.Serial(self.serialport,'230400',timeout=1)
+            self.serial = serial.Serial(self.serialport,'115200')
         except Exception as err:
             print err
 
@@ -125,7 +142,6 @@ class moteProbe(threading.Thread):
                         self._process_inputbuf()
     def _process_inputbuf(self):
         if self.inputBuf[1].upper() == 'P':
-            print len(self.inputBuf)
             print "received packet: "+":".join("{:02x}".format(ord(c)) for c in self.inputBuf)
             data = [int(binascii.hexlify(x),16) for x in self.inputBuf]
             data_tuple = self.parser_data.parseInput(data[2:])
@@ -137,6 +153,7 @@ class moteProbe(threading.Thread):
                     return
                 curr_packet_time = int(round(time.time() * 1000))
                 print "received data: "+':'.join(str(hex(i)) for i in data[4:])+" , Packet Latency: "+str(curr_packet_time-self.prev_packet_time)
+                print "received data len : "+str(len(data[4:]))
                 x = curr_packet_time - self.prev_packet_time
                 self.latency[1] = self.latency[1] + 1.0
                 if self.latency[1] > 1.0:
@@ -147,6 +164,15 @@ class moteProbe(threading.Thread):
                 self.prev_pkt = data[4:]
         elif self.inputBuf[1] == 'D':
             print "debug msg: "+":".join("{:02x}".format(ord(c)) for c in self.inputBuf[2:])
+            measured_data.append(int(binascii.hexlify(self.inputBuf[2]),16))
+            #if(len(measured_data[str(payload_length)]) == 50):
+            if(len(measured_data) == 50):
+                print(json.dumps(measured_data))
+                f = open('measurement_radio_rcv_to_nxt_slot_127.json','w')
+                f.write(json.dumps(measured_data))
+                f.close()
+                payload_length = -1
+                self.close()
         elif self.inputBuf[1] == 'R':
             print "command response: "+":".join("{:02x}".format(ord(c)) for c in self.inputBuf[2:])
         elif self.inputBuf[1] == 'E':
@@ -161,12 +187,14 @@ class moteProbe(threading.Thread):
             #self.rframe_latency  =  curr_packet_time
             global outputBuf
             global outputBufLock
+            #global latency
             if (len(outputBuf) > 0) and not outputBufLock:
                 outputBufLock = True
                 dataToWrite = outputBuf.pop(0)
                 outputBufLock = False
+                #print int(round(time.time() * 1000)) - latency
                 self.serial.write(dataToWrite)
-                print len(dataToWrite)
+                #print len(dataToWrite)
                 print "injecting: "+":".join("{:02x}".format(ord(c)) for c in dataToWrite)
         self.inputBuf = ''
 
@@ -308,7 +336,8 @@ if __name__=="__main__":
             elif cmd == "ipv6":
                 print "injecting one packet udp packet by converting lowpan packet"
                 sys.stdout.flush()
-                test.setData("Yadhunandana")
+                print len(command_test)
+                test.setData(command_test)
                 tmp = test.getPacket()
                 lowpan_packet = moteProbe_object.routing_instance.convert_to_iphc(tmp)
                 if lowpan_packet is None:
@@ -371,7 +400,8 @@ if __name__=="__main__":
                         #exit()
                     millis = int(round(time.time() * 1000))
                     sys.stdout.flush()
-                    test.setData(str(millis))
+                    test.setData(command_test)
+                    print len(command_test)
                     tmp = test.getPacket()
                     #print "ipv6: "+':'.join(hex(i) for i in tmp)
                     lowpan_packet = moteProbe_object.routing_instance.convert_to_iphc(tmp)
@@ -390,7 +420,7 @@ if __name__=="__main__":
                         outputBufLock = True
                         outputBuf += [str(command_inject_udp_packet)+str_lowpanbytes+str(chsum)]
                         outputBufLock  = False
-                    time.sleep(0.03)
+                    time.sleep(0.1)
     except KeyboardInterrupt:
         #socketThread_object.close()
         moteProbe_object.close()

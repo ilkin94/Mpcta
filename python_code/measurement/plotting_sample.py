@@ -6,23 +6,21 @@ import scipy as sp
 import scipy.stats
 import json
  
-file_ref = open("measurement_data.json","r")
+file_ref = open("measurement_udp_data.json","r")
 
 data = json.load(file_ref)
 
 file_ref.close()
 
-samples = data['6']
+#sample count is how many samples are taken for any one payload len, any payload length will do.
+sample_count = len(data['6'])
+sample_means = []
 
-num_bins = len(samples)
+for key in data:
+    mean = np.mean(data[key])
+    sample_means.append(mean)
+    x_axis.append(int(key))
 
-print np.mean(samples)
-
-n, bins, patches = plt.hist(samples, num_bins, facecolor='blue')
-
-print np.std(samples)
-
-print n
-print bins
+plt.plot(x_axis,sample_means,'g.',label = 'Processing Delay',markersize=5)
 
 plt.show()

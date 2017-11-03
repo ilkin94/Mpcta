@@ -8,6 +8,7 @@ import sys
 import time
 import socket
 import struct
+import json
 
 #This commnd includes the prefix and the security key of the 802.15.4 network
 command_set_dagroot = bytearray([0x7e,0x1c,0x43,0x00,0x54,0xbb,0xbb,0x00,0x00,0x00,0x00,0x00,0x00,0x01,0x91,0x5b,0xc9,0xf1,0x5c,0x77,0x57,0x89,0x4f,0x4f,0x86,0x15,0xd8,0x14,0x25,0x27])
@@ -28,17 +29,29 @@ command_reset_board = bytearray([0x7e,0x03,0x43,0x08])
 
 command_get_buff_stat = bytearray([0x7e,0x03,0x43,0xff])
 
-command_test = bytearray([0x00,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,
-0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,
-0x02,0x02,0x02,0x02,0x01])
+command_test = bytearray([
+0xff,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,
+0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,
+0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,
+0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,
+0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,
+0x02,0x02,0x02,0x02,0x02,0x02,0x02,#0x02,0x02,0x02,
+0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0xee
+])
 
 #this is just a temporary hardcoded data, has to be read from
 #sockets later
 udp_packet_data = "200"
+PAYLOAD_LEN = 77
 
 outputBufLock = False
 
 outputBuf     = []
+
+measured_data = {}
+#measured_data = []
+
+payload_length = PAYLOAD_LEN
 
 H2R_PACKET_FORMAT = 'f'
 H2R_PACKET_SIZE = struct.calcsize(H2R_PACKET_FORMAT)
@@ -65,6 +78,7 @@ class moteProbe(threading.Thread):
         self.latency             = [0.0,0.0] #Here first element represents prev_latency, and second element represents sample count used to calculate the average latency 
         self.prev_pkt            = None
         self.rframe_latency      = 0
+        self.data_pkt_size       = 0 
 
         # flag to permit exit from read loop
         self.goOn                 = True
@@ -76,7 +90,7 @@ class moteProbe(threading.Thread):
         self.name                 = 'moteProbe@'+self.serialport
         
         try:
-            self.serial = serial.Serial(self.serialport,'115200',timeout=1)
+            self.serial = serial.Serial(self.serialport,'115200')
         except Exception as err:
             print err
 
@@ -119,13 +133,13 @@ class moteProbe(threading.Thread):
     def _process_inputbuf(self):
         if self.inputBuf[1].upper() == 'P':
             curr_packet_time = int(round(time.time() * 1000))
-            #print "received packet: "+":".join("{:02x}".format(ord(c)) for c in self.inputBuf[2:]) + " Packet Latency: " + str(curr_packet_time-self.prev_packet_time)
+            print "Payload len: "+ str(len(self.inputBuf[2:]))
+            print "received packet: "+":".join("{:02x}".format(ord(c)) for c in self.inputBuf[2:]) + " Packet Latency: " + str(curr_packet_time-self.prev_packet_time)
             #print int(data[4]-0x30)
             if self.prev_pkt  == self.inputBuf[2:]:
                 print "Duplicate packet"
                 self.inputBuf = ''
                 return
-            print "received data: "+self.inputBuf[2:]+" , Packet Latency: "+str(curr_packet_time-self.prev_packet_time)
             x = curr_packet_time - self.prev_packet_time
             self.latency[1] = self.latency[1] + 1.0
             if self.latency[1] > 1.0:
@@ -136,6 +150,22 @@ class moteProbe(threading.Thread):
             self.prev_pkt = self.inputBuf[2:]
         elif self.inputBuf[1] == 'D':
             print "debug msg: "+":".join("{:02x}".format(ord(c)) for c in self.inputBuf[2:])
+            global measured_data
+            global payload_length
+            if str(payload_length) in measured_data.keys():
+                measured_data[str(payload_length)].append(int(binascii.hexlify(self.inputBuf[2]),16))
+            else:
+                measured_data[str(payload_length)] = [int(binascii.hexlify(self.inputBuf[2]),16)]
+            if(len(measured_data[str(payload_length)]) == 10):
+                if(payload_length == PAYLOAD_LEN):
+                    print(json.dumps(measured_data))
+                    f = open('measurement_udp_data_77.json','w')
+                    f.write(json.dumps(measured_data))
+                    f.close()
+                    payload_length = -1
+                    self.close()
+                else:
+                    payload_length = payload_length + 1
         elif self.inputBuf[1] == 'R':
             print "command response: "+":".join("{:02x}".format(ord(c)) for c in self.inputBuf[2:])
         #elif self.inputBuf[1] == 'E' and not (int(binascii.hexlify(self.inputBuf[3]),16) == 0x09) \
@@ -161,7 +191,6 @@ class moteProbe(threading.Thread):
                 dataToWrite = outputBuf.pop(0)
                 outputBufLock = False
                 print "injecting: "+":".join("{:02x}".format(ord(c)) for c in dataToWrite)
-                print len(dataToWrite)
                 self.serial.write(dataToWrite)
         self.inputBuf = ''
 
@@ -262,13 +291,13 @@ if __name__=="__main__":
     print "  reset to reset the board"
     print "  quit to exit "
     
-    UDP_IP = "127.0.0.1"
-    UDP_PORT = 5006
+    #UDP_IP = "127.0.0.1"
+    #UDP_PORT = 5006
     
-    socket_handler = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
-    socket_handler.bind((UDP_IP, UDP_PORT))
+    #socket_handler = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
+    #socket_handler.bind((UDP_IP, UDP_PORT))
     #Setting timeout as five seconds
-    socket_handler.settimeout(15)
+    #socket_handler.settimeout(15)
     
     try:
         while(1):
@@ -289,7 +318,7 @@ if __name__=="__main__":
                 SendPacketMode = True
             elif cmd == "ipv6":
                 print "injecting one packet udp packet by converting lowpan packet"
-                str_lowpanbytes = "Yadhunandana"
+                str_lowpanbytes = str(command_test)
                 #Here subtracting one because 0x7e is not included in the length, Adding to two to include checksum bytes.
                 command_inject_udp_packet[1] = len(command_inject_udp_packet) + len(str_lowpanbytes)-1 + 2;
                 #Here I will calculate 16-bit checksum for the whole packet then, I will attach it to end of the packet.
@@ -350,16 +379,18 @@ if __name__=="__main__":
                 #except KeyboardInterrupt:
                     #moteProbe_object.close()
                     #exit()
-                millis = int(round(time.time() * 1000))
-                temp = str(millis)
-                sys.stdout.flush()
-                command_inject_udp_packet[1] = len(command_inject_udp_packet) + len(str(millis))-1 + 2;
-                chsum = checkSumCalc(bytearray(str(command_inject_udp_packet[1:])+temp))
+                #if payload_length == -1:
+                    #exit()
+                str_lowpanbytes = str(command_test)
+                #Here subtracting one because 0x7e is not included in the length, Adding to two to include checksum bytes.
+                command_inject_udp_packet[1] = len(command_inject_udp_packet) + len(str_lowpanbytes)-1 + 2;
+                #Here I will calculate 16-bit checksum for the whole packet then, I will attach it to end of the packet.
+                chsum = checkSumCalc(bytearray(str(command_inject_udp_packet[1:])+str_lowpanbytes))
                 if not outputBufLock:
                     outputBufLock = True
-                    outputBuf += [str(command_inject_udp_packet)+temp+str(chsum)]
+                    outputBuf += [str(command_inject_udp_packet)+str_lowpanbytes+str(chsum)]
                     outputBufLock  = False
-                time.sleep(0.03)
+                time.sleep(0.2)
     except KeyboardInterrupt:
         #socketThread_object.close()
         moteProbe_object.close()
