@@ -1,0 +1,177 @@
+% PLEASE FILL IN THE PLACEHOLDERS <...>
+%
+% Forschungpraxis report von Yadhunandana Rajathadripura Kumaraiah
+%
+% Title: <TITLE>
+%        <TITLE>
+%
+\documentclass[12pt,a4paper]{report}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% PACKAGES:
+
+% Define typearea
+% a) Use automatic:
+\usepackage[BCOR1cm]{typearea}
+% b) Or use fixed: 
+%\usepackage{geometry}
+%\geometry{left=1.5cm,textwidth=18.5cm,top=1.5cm,textheight=26.5cm}
+
+% Use German :
+\usepackage[USenglish]{babel}
+% Use list of tabels, etc. in table of contents:
+\usepackage{tocbibind}
+% German paragraph skip
+\usepackage{parskip}
+% Encoder:????
+%\usepackage[utf-8]{inputenc}
+\usepackage[utf8]{inputenc}
+% Use A4-paper efficiently:
+\usepackage{a4wide}
+% Index-generation
+\usepackage{makeidx}
+% Einbinden von URLs:
+\usepackage{url}
+% Include .eps-files (needed also for the LKN-logo):
+%\usepackage{epsf}
+\usepackage{epsfig}
+\usepackage{epstopdf}
+% Special \LaTex symbols (e.g. \BibTeX):
+\usepackage{doc}
+% Include Graphic-files:
+%\usepackage{graphics}
+% Include Graphic-files:
+\usepackage{graphicx}
+\usepackage[export]{adjustbox}
+\usepackage{float}
+\RequirePackage{filecontents}
+% Include doc++ generated tex-files:
+%\usepackage{docxx}
+% Include PDF links
+%\usepackage[pdftex, bookmarks=true]{hyperref}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% OTHER SETTINGS:
+
+% Pagestyle:
+\pagestyle{headings}
+
+% Avoid 'overhang':
+\sloppy
+
+% Choose language
+\newcommand{\setlang}[1]{\selectlanguage{#1}\nonfrenchspacing}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% TITLE:
+
+\begin{document}
+
+\thispagestyle{empty}
+\newpage
+
+\vspace{5cm}
+\begin{center}
+    \epsfxsize=4cm
+    \epsfbox{LKN_Logo_klein.eps}
+\end{center}
+
+\parbox{15cm}{\begin{center} {\sf\bf 
+                               \Large  Technische Universität München
+                                \smallskip
+
+                               \Large Lehrstuhl für Kommunikationsnetze
+                               \smallskip
+                              }
+
+                              {\sf \large Prof. Dr.-Ing. Wolfgang Kellerer} 
+              \end{center}}  %&
+
+\vspace{4cm}
+
+\begin{center}
+        {\bf\Huge Research internship report} % Studienarbeit, Interdisziplinäres Projekt
+\end{center}
+
+\begin{center}
+        \settowidth{\baselineskip}{0.4cm}
+        {\LARGE 
+        Eastbound interface development and latency evaluation for industrial wireless testbed.
+        }
+\end{center}
+
+\vfill         
+{\settowidth{\baselineskip}{0.2cm}
+\large\begin{tabular}[l]{ll}
+Author: & Rajathadripura Kumaraiah, Yadhunandana\\
+Address: & Schröfelhofstraße 14\\
+         & 81375 Munich\\
+         & Germany\\
+Matriculation Number: & 03680943\\
+Supervisor: & Gürsu Murat, Samuele Zoppi\\
+Begin: & 07. August 2017\\
+End: & 29. September 2017
+\end{tabular}}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% MAIN PART:
+% Independence and License statements
+\include{Statements}
+% German abstract:
+%\include{Kurzfassung}
+% English abstract:
+\include{Abstract}
+% Table of contents:
+\tableofcontents  
+% Introduction (Einleitung):
+\include{Introduction}
+
+% Text Body (Hauptteil)
+% Could have multiple chaper-files, e.g.:
+\include{Background}
+\include{Evaluation}
+%  Conclusions (Zusammenfassung):
+\include{Conclusions}
+
+% Appendix (Anhänge), could have multiple chaper-files:
+\appendix
+\include{Appendix}
+
+% Abbreviations (Abkürzungsverzeichnis):
+\include{Abbreviations}
+
+
+\begin{filecontents*}{bib.bib}
+	@thesis{Yagiz,
+		author={Oezkan, Hasan Yagiz},
+		title={Minimalistic Frame structure building and bottleneck analysis for LLDN with OpenWSN},
+		school={TUM},
+		year={2016},
+		note={Bachelor thesis}
+	}
+	@misc{Craig.Peacock@beyondlogic.org,
+		title = {USB in nutshell},
+		howpublished = {\url{http://www.beyondlogic.org/usbnutshell/usb4.shtml#Bulk}},
+		note = {Accessed: 2017-10-12}
+	}
+\end{filecontents*}
+
+% References (Literaturverzeichnis):
+% a) Style (with numbers: use unsrt):
+\bibliographystyle{alpha}
+% b) The File:
+\bibliography{OpenWSN.bib,S1389128612002423.bib,bib.bib}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\end{document}

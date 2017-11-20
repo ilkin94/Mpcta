@@ -1,0 +1,42 @@
+\documentclass{article}
+\usepackage[backend=bibtex]{biblatex}
+\RequirePackage{filecontents}
+\begin{filecontents*}{bib.bib}
+	@phdthesis{mephd2014,
+		author={Myself, Roberto},
+		title={A great memoir},
+		school={UCXDX},
+		year={2014},
+		note={unpublished thesis}
+	}
+	@phdthesis{mepdh2014bis,
+		author={Myself, Roberto},
+		title={A great memoir},
+		school={UCXDX},
+		year={2014},
+		addendum={unpublished thesis}
+	}
+	@unpublished{meunpub2014,
+		author={Myself, Roberto},
+		title={A great memoir},
+		school={UCXDX},
+		year={2014},
+		note={unpublished thesis}
+	}
+	@unpublished{meunpub2014bis,
+		author={Myself, Roberto},
+		title={A great memoir},
+		school={UCXDX},
+		year={2014},
+		addendum={unpublished thesis}
+	}
+\end{filecontents*}
+\addbibresource{bib.bib}
+\begin{document}
+	\noindent
+	\verb|@phdthesis| with note: \cite{mephd2014}\\
+	\verb|@phdthesis| with addendum: \cite{mepdh2014bis}\\
+	\verb|@unpublished| with note: \cite{meunpub2014}\\
+	\verb|@unpublished| with addendum: \cite{meunpub2014bis}
+	\printbibliography
+\end{document}

@@ -1,0 +1,11 @@
+\setlang{USenglish}
+\thispagestyle{plain}
+
+\section*{Abstract}
+This document describes the process of developing eastbound interface and latency characterization for evaluating contributors to latency in capillary networks. Although wireless communication has become integral part of our lives, still it has not succeeded in finding widespread use in industrial or automation field. It is mainly because of stringent reliability and latency requirements. However recent technological developments in wireless communication field can achieve those stringent requirements.
+
+In this work a eastbound interface is developed to evaluate the components which cause the latency both from hardware as well software perspective. Presently many wireless sensor platforms and operating systems are available, However to the best of our knowledge we did not find any platform best suited for evaluating stringent delay and reliability of industrial communication. In this work a existing hardware platform z1 mote from zolertia and open source software OpenWSN is considered as a starting point for the development of testbed. An extendable eastbound interface is developed for controlling/injecting data to mote for communicating with other nodes in the network. Delay contribution due this interface is analyzed both analytically and measured practically. Additionally MAC layer is modified to support short slot widths(15ms to 6ms) and to better support mote communication with host computer.
+
+In addition to development of mote firmware, A python framework is developed which runs in host computer which performs following functions controlling the mote,maintaining the routing table in case the mote is network coordinator, collects the network statistics when needed and connects application running in the host via IPv6 sockets reads and injects data to mote for communicating to the other end of application.
+
+Finally extensive analysis of east bound(serial) interface of the mote and communication stack processing delay are presented.

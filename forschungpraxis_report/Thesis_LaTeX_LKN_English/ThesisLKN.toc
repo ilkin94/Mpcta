@@ -1,0 +1,28 @@
+\select@language {USenglish}
+\select@language {USenglish}
+\contentsline {chapter}{Contents}{4}
+\contentsline {chapter}{\numberline {1}Introduction}{5}
+\contentsline {chapter}{\numberline {2}Background}{7}
+\contentsline {section}{\numberline {2.1}OpenWSN Stack}{8}
+\contentsline {section}{\numberline {2.2}TSCH}{8}
+\contentsline {section}{\numberline {2.3}LLDN}{9}
+\contentsline {section}{\numberline {2.4}Problem description}{9}
+\contentsline {chapter}{\numberline {3}Implementation and Results}{10}
+\contentsline {section}{\numberline {3.1}Development and evaluation eastbound interface}{10}
+\contentsline {subsection}{\numberline {3.1.1}Open serial driver design}{11}
+\contentsline {subsection}{\numberline {3.1.2}Network management module}{14}
+\contentsline {section}{\numberline {3.2}LLDN schedule construction}{16}
+\contentsline {section}{\numberline {3.3}Modified OpenWSN External MAC}{16}
+\contentsline {section}{\numberline {3.4}Eastbound delay characterization}{17}
+\contentsline {subsection}{\numberline {3.4.1}Setup}{17}
+\contentsline {subsection}{\numberline {3.4.2}Evaluation}{18}
+\contentsline {subsubsection}{\numberline {3.4.2.1}Chip ack processing delay}{19}
+\contentsline {subsubsection}{\numberline {3.4.2.2}USB transmission and protocol overhead delay($T_{usb}$)}{19}
+\contentsline {subsubsection}{\numberline {3.4.2.3}UART transmission delay($T_{serial}$)}{21}
+\contentsline {section}{\numberline {3.5}Communication stack processing delay}{22}
+\contentsline {chapter}{\numberline {4}Conclusions and Outlook}{24}
+\contentsline {section}{\numberline {4.1}Conclusion}{24}
+\contentsline {section}{\numberline {4.2}Future work}{24}
+\contentsline {chapter}{\numberline {A}}{25}
+\contentsline {chapter}{\numberline {B}Notation and Abbreviations}{26}
+\contentsline {chapter}{Bibliography}{27}

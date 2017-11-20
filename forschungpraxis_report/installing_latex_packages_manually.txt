@@ -1,0 +1,5 @@
+Steps for manually installing packages for latex.
+1. download latex packe from https://ctan.org/pkg/authblk
+2. Extract the zip, copy *.sty file to /usr/share/texmf/tex/latex, If *.sty is not there compile with *ins file
+	that will generate *.sty file copy this know location
+3. then run sudo texhash

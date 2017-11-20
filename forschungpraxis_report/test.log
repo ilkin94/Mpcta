@@ -1,0 +1,303 @@
+This is pdfTeX, Version 3.14159265-2.6-1.40.16 (TeX Live 2015/Debian) (preloaded format=pdflatex 2017.10.18)  17 NOV 2017 03:57
+entering extended mode
+ restricted \write18 enabled.
+ %&-line parsing enabled.
+**test.tex
+(./test.tex
+LaTeX2e <2016/02/01>
+Babel <3.9q> and hyphenation patterns for 3 language(s) loaded.
+(/usr/share/texlive/texmf-dist/tex/latex/base/article.cls
+Document Class: article 2014/09/29 v1.4h Standard LaTeX document class
+(/usr/share/texlive/texmf-dist/tex/latex/base/size10.clo
+File: size10.clo 2014/09/29 v1.4h Standard LaTeX file (size option)
+)
+\c@part=\count79
+\c@section=\count80
+\c@subsection=\count81
+\c@subsubsection=\count82
+\c@paragraph=\count83
+\c@subparagraph=\count84
+\c@figure=\count85
+\c@table=\count86
+\abovecaptionskip=\skip41
+\belowcaptionskip=\skip42
+\bibindent=\dimen102
+)
+(/usr/share/texlive/texmf-dist/tex/latex/biblatex/biblatex.sty
+Package: biblatex 2016/03/03 v3.3 programmable bibliographies (PK/JW/AB)
+
+(/usr/share/texlive/texmf-dist/tex/latex/biblatex/biblatex_legacy.sty
+Package: biblatex_legacy 2016/03/03 v3.3 programmable bibliographies (bibtex) (
+PK/JW/AB)
+
+(/usr/share/texlive/texmf-dist/tex/latex/etoolbox/etoolbox.sty
+Package: etoolbox 2015/08/02 v2.2a e-TeX tools for LaTeX (JAW)
+\etb@tempcnta=\count87
+)
+(/usr/share/texlive/texmf-dist/tex/latex/graphics/keyval.sty
+Package: keyval 2014/10/28 v1.15 key=value parser (DPC)
+\KV@toks@=\toks14
+)
+(/usr/share/texlive/texmf-dist/tex/latex/logreq/logreq.sty
+Package: logreq 2010/08/04 v1.0 xml request logger
+\lrq@indent=\count88
+
+(/usr/share/texlive/texmf-dist/tex/latex/logreq/logreq.def
+File: logreq.def 2010/08/04 v1.0 logreq spec v1.0
+))
+(/usr/share/texlive/texmf-dist/tex/latex/base/ifthen.sty
+Package: ifthen 2014/09/29 v1.1c Standard LaTeX ifthen package (DPC)
+)
+(/usr/share/texlive/texmf-dist/tex/latex/url/url.sty
+\Urlmuskip=\muskip10
+Package: url 2013/09/16  ver 3.4  Verb mode for urls, etc.
+)
+\c@tabx@nest=\count89
+\c@listtotal=\count90
+\c@listcount=\count91
+\c@liststart=\count92
+\c@liststop=\count93
+\c@citecount=\count94
+\c@citetotal=\count95
+\c@multicitecount=\count96
+\c@multicitetotal=\count97
+\c@instcount=\count98
+\c@maxnames=\count99
+\c@minnames=\count100
+\c@maxitems=\count101
+\c@minitems=\count102
+\c@citecounter=\count103
+\c@savedcitecounter=\count104
+\c@uniquelist=\count105
+\c@uniquename=\count106
+\c@refsection=\count107
+\c@refsegment=\count108
+\c@maxextrayear=\count109
+\c@maxextraalpha=\count110
+\c@abbrvpenalty=\count111
+\c@highnamepenalty=\count112
+\c@lownamepenalty=\count113
+\c@maxparens=\count114
+\c@parenlevel=\count115
+\blx@tempcnta=\count116
+\blx@tempcntb=\count117
+\blx@tempcntc=\count118
+\blx@maxsection=\count119
+\blx@maxsegment=\count120
+\blx@notetype=\count121
+\blx@parenlevel@text=\count122
+\blx@parenlevel@foot=\count123
+\labelnumberwidth=\skip43
+\labelalphawidth=\skip44
+\shorthandwidth=\skip45
+\biblabelsep=\skip46
+\bibitemsep=\skip47
+\bibnamesep=\skip48
+\bibinitsep=\skip49
+\bibparsep=\skip50
+\bibhang=\skip51
+\blx@auxin=\read1
+\blx@auxout=\write3
+\c@mincomprange=\count124
+\c@maxcomprange=\count125
+\c@mincompwidth=\count126
+\c@labelname=\count127
+\c@savedlabelname=\count128
+\c@author=\count129
+\c@savedauthor=\count130
+\c@shortauthor=\count131
+\c@savedshortauthor=\count132
+\c@editor=\count133
+\c@savededitor=\count134
+\c@editora=\count135
+\c@savededitora=\count136
+\c@editorb=\count137
+\c@savededitorb=\count138
+\c@editorc=\count139
+\c@savededitorc=\count140
+\c@shorteditor=\count141
+\c@savedshorteditor=\count142
+\c@bookauthor=\count143
+\c@savedbookauthor=\count144
+\c@translator=\count145
+\c@savedtranslator=\count146
+\c@annotator=\count147
+\c@savedannotator=\count148
+\c@commentator=\count149
+\c@savedcommentator=\count150
+\c@introduction=\count151
+\c@savedintroduction=\count152
+\c@foreword=\count153
+\c@savedforeword=\count154
+\c@afterword=\count155
+\c@savedafterword=\count156
+\c@holder=\count157
+\c@savedholder=\count158
+\c@namea=\count159
+\c@savednamea=\count160
+\c@nameb=\count161
+\c@savednameb=\count162
+\c@namec=\count163
+\c@savednamec=\count164
+\c@institution=\count165
+\c@savedinstitution=\count166
+\c@language=\count167
+\c@savedlanguage=\count168
+\c@location=\count169
+\c@savedlocation=\count170
+\c@organization=\count171
+\c@savedorganization=\count172
+\c@origlocation=\count173
+\c@savedoriglocation=\count174
+\c@origpublisher=\count175
+\c@savedorigpublisher=\count176
+\c@pageref=\count177
+\c@savedpageref=\count178
+\c@publisher=\count179
+\c@savedpublisher=\count180
+\c@lista=\count181
+\c@savedlista=\count182
+\c@listb=\count183
+\c@savedlistb=\count184
+\c@listc=\count185
+\c@savedlistc=\count186
+\c@listd=\count187
+\c@savedlistd=\count188
+\c@liste=\count189
+\c@savedliste=\count190
+\c@listf=\count191
+\c@savedlistf=\count192
+Package biblatex Info: Trying to load compatibility code...
+Package biblatex Info: ... file 'blx-compat.def' found.
+
+(/usr/share/texlive/texmf-dist/tex/latex/biblatex/blx-compat.def
+File: blx-compat.def 2016/03/03 v3.3 biblatex compatibility (PK/JW/AB)
+)
+Package biblatex Info: Trying to load generic definitions...
+Package biblatex Info: ... file 'biblatex_legacy.def' found.
+
+(/usr/share/texlive/texmf-dist/tex/latex/biblatex/biblatex_legacy.def
+File: biblatex_legacy.def 
+\c@textcitecount=\count193
+\c@textcitetotal=\count194
+\c@textcitemaxnames=\count195
+\c@biburlnumpenalty=\count196
+\c@biburlucpenalty=\count197
+\c@biburllcpenalty=\count198
+\c@smartand=\count199
+)
+Package biblatex Info: Trying to load bibliography style 'numeric'...
+Package biblatex Info: ... file 'numeric.bbx' found.
+
+(/usr/share/texlive/texmf-dist/tex/latex/biblatex/bbx/numeric.bbx
+File: numeric.bbx 2016/03/03 v3.3 biblatex bibliography style (PK/JW/AB)
+Package biblatex Info: Trying to load bibliography style 'standard'...
+Package biblatex Info: ... file 'standard.bbx' found.
+
+(/usr/share/texlive/texmf-dist/tex/latex/biblatex/bbx/standard.bbx
+File: standard.bbx 2016/03/03 v3.3 biblatex bibliography style (PK/JW/AB)
+\c@bbx:relatedcount=\count266
+\c@bbx:relatedtotal=\count267
+))
+Package biblatex Info: Trying to load citation style 'numeric'...
+Package biblatex Info: ... file 'numeric.cbx' found.
+
+(/usr/share/texlive/texmf-dist/tex/latex/biblatex/cbx/numeric.cbx
+File: numeric.cbx 2016/03/03 v3.3 biblatex citation style (PK/JW/AB)
+Package biblatex Info: Redefining '\cite'.
+Package biblatex Info: Redefining '\parencite'.
+Package biblatex Info: Redefining '\footcite'.
+Package biblatex Info: Redefining '\footcitetext'.
+Package biblatex Info: Redefining '\smartcite'.
+Package biblatex Info: Redefining '\supercite'.
+Package biblatex Info: Redefining '\textcite'.
+Package biblatex Info: Redefining '\textcites'.
+Package biblatex Info: Redefining '\cites'.
+Package biblatex Info: Redefining '\parencites'.
+Package biblatex Info: Redefining '\smartcites'.
+)
+Package biblatex Info: Trying to load configuration file...
+Package biblatex Info: ... file 'biblatex.cfg' found.
+
+(/usr/share/texlive/texmf-dist/tex/latex/biblatex/biblatex.cfg
+File: biblatex.cfg 
+)))
+(/usr/share/texlive/texmf-dist/tex/latex/filecontents/filecontents.sty
+Package: filecontents 2011/10/08 v1.3 Create an external file from within a LaT
+eX document
+)
+
+LaTeX Warning: Overwriting file `./bib.bib'.
+
+\openout15 = `bib.bib'.
+
+
+LaTeX Warning: Tab has been converted to Blank Space.
+
+
+Package biblatex Info: Trying to load language 'english'...
+Package biblatex Info: ... file 'english.lbx' found.
+(/usr/share/texlive/texmf-dist/tex/latex/biblatex/lbx/english.lbx
+File: english.lbx 2016/03/03 v3.3 biblatex localization (PK/JW/AB)
+)
+\@quotelevel=\count268
+\@quotereset=\count269
+ (./test.aux)
+\openout1 = `test.aux'.
+
+LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 35.
+LaTeX Font Info:    ... okay on input line 35.
+LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 35.
+LaTeX Font Info:    ... okay on input line 35.
+LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 35.
+LaTeX Font Info:    ... okay on input line 35.
+LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 35.
+LaTeX Font Info:    ... okay on input line 35.
+LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 35.
+LaTeX Font Info:    ... okay on input line 35.
+LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 35.
+LaTeX Font Info:    ... okay on input line 35.
+Package biblatex Info: No input encoding detected.
+(biblatex)             Assuming 'ascii'.
+Package biblatex Info: Automatic encoding selection.
+(biblatex)             Assuming data encoding 'ascii'.
+\openout3 = `test-blx.bib'.
+
+Package biblatex Info: Trying to load bibliographic data...
+Package biblatex Info: ... file 'test.bbl' found.
+(./test.bbl)
+Package biblatex Info: Reference section=0 on input line 35.
+Package biblatex Info: Reference segment=0 on input line 35.
+
+Overfull \hbox (5.16605pt too wide) in paragraph at lines 42--42
+[]\OT1/cmr/m/n/10 Roberto My-self. ``A great mem-oir''. un-pub-lished the-sis. 
+PhD the-sis. UCXDX,
+ []
+
+[1
+
+{/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map}] (./test.aux)
+Package logreq Info: Writing requests to 'test.run.xml'.
+\openout1 = `test.run.xml'.
+
+ )
+(\end occurred when \iftrue on line 35 was incomplete) 
+Here is how much of TeX's memory you used:
+ 5109 strings out of 494953
+ 86011 string characters out of 6180976
+ 230178 words of memory out of 5000000
+ 8413 multiletter control sequences out of 15000+600000
+ 4413 words of font info for 17 fonts, out of 8000000 for 9000
+ 14 hyphenation exceptions out of 8191
+ 36i,4n,45p,823b,855s stack positions out of 5000i,500n,10000p,200000b,80000s
+</usr/share/texlive/texmf
+-dist/fonts/type1/public/amsfonts/cm/cmbx12.pfb></usr/share/texlive/texmf-dist/
+fonts/type1/public/amsfonts/cm/cmr10.pfb></usr/share/texlive/texmf-dist/fonts/t
+ype1/public/amsfonts/cm/cmtt10.pfb>
+Output written on test.pdf (1 page, 36996 bytes).
+PDF statistics:
+ 20 PDF objects out of 1000 (max. 8388607)
+ 13 compressed objects within 1 object stream
+ 0 named destinations out of 1000 (max. 500000)
+ 1 words of extra memory for PDF output out of 10000 (max. 10000000)
+

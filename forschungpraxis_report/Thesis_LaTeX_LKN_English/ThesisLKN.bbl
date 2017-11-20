@@ -1,0 +1,28 @@
+\newcommand{\etalchar}[1]{$^{#1}$}
+\begin{thebibliography}{WVK{\etalchar{+}}12}
+
+\bibitem[Cra]{Craig.Peacock@beyondlogic.org}
+Usb in nutshell.
+\newblock \url{http://www.beyondlogic.org/usbnutshell/usb4.shtml#Bulk}.
+\newblock Accessed: 2017-10-12.
+
+\bibitem[GK12]{GADDOUR20123163}
+Olfa Gaddour and Anis Koubâa.
+\newblock Rpl in a nutshell: A survey.
+\newblock {\em Computer Networks}, 56(14):3163 -- 3178, 2012.
+
+\bibitem[Oez16]{Yagiz}
+Hasan~Yagiz Oezkan.
+\newblock Minimalistic frame structure building and bottleneck analysis for
+  lldn with openwsn, 2016.
+\newblock Bachelor thesis.
+
+\bibitem[WVK{\etalchar{+}}12]{ETT:ETT2558}
+Thomas Watteyne, Xavier Vilajosana, Branko Kerkez, Fabien Chraim, Kevin Weekly,
+  Qin Wang, Steven Glaser, and Kris Pister.
+\newblock Openwsn: a standards-based low-power wireless development
+  environment.
+\newblock {\em Transactions on Emerging Telecommunications Technologies},
+  23(5):480--493, 2012.
+
+\end{thebibliography}

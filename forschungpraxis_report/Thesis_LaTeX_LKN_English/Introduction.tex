@@ -1,0 +1,20 @@
+\chapter{Introduction}
+Protocols such as Ethernet,Foundation Fieldbus, Profibus, and HART are well established in the industrial
+process control space. Until recently industrial communication was mainly through wired networks such as Ethernet,Modbus etc. The reason being strict reliability, latency and robustness requirements in industrial environments.
+
+Recent innovations in wireless technologies and hardware has made wireless chips affordable,cheap simultaneously reliable and robust. IC Insights predict that the average selling price (ASP) of mobile-device analog ICs in other words wireless IC's, will decline by more than 30\% from 2011 to 2019\footnote{http://www.icinsights.com/news/bulletins/IC-Insights-Raises-2017-IC-Market-Forecast-To-22-/}. This opens new era in industrial communication where machines, manufacturing processes can monitored remotely without tedious and costly wired networks. Wireless nodes being easily installable,replaceable become an attractive option. With all these advantages, still there are problems which needs to solved. For example to satisfy stringent latency and reliability requirements, new type of medium access methodologies have to be developed, implementations need to optimized for achieving low latency and to maintain network reliability new routing algorithms have to developed by keeping in mind these stringent requirements while defining the objective function.
+The stake in manufacturing environments is very high. a network disconnection might result in a loss of billions.
+
+In this internship, work is carried out to develop eastbound interface and its characterization for Industrial wireless testbed to evaluate wireless sensor networks for latency and reliability. To develop such a testbed OpenWSN software stack is considered. It provides a open source implementation of new IEEE802.15.4e 'Time synchronized Channel hopping' medium access standard which achieves high reliability through frequency agility(Channel hopping) to provide reliablity in irrespective of channel congestion and low power through time synchronization with other nodes in the network. The development of platform is done on the commercially available of the shelf hardware platform Zolertia Z1(Framework is not tied to any hardware as long as the platform supports computing and radio requirements). In research internship main focus was developing testbed for analyzing delay contributors, Low latency network setup and characterization of the delay contributors in the east bound interface(host to mote serial communication) of the network.
+
+In chapter 2 a brief instroduction of OpenWSN stack, TSCH and LLDN is given. OpenWSN, an implementation of protocol stack that we use throughout this work, is introduced also in this chapter. We briefly explain TSCH and LLDN mechanism.
+
+In chapter 3 we details of our implementation are presented. First part explains the design of openserial driver module and details of Minimal network management python module. Second part describes the LLDN schedule construction. Third part briefly describes modification of external MAC. In the fourth part presents extensive characterization of east bound interface of is presented. At last in fifth part communication stack processing delay for OpenWSN stack is presented.
+
+In chapter 4 conclusion to the work is given and a glimpse of future research is offered.
+
+%This report presents the architecture, components, evaluation and management framework of testbed. The components newly developed and improved from OpenWSN are described briefly. implementation details of the same are provided in later.
+
+%TODO still has to explain about the results and delay components and their characterization briefly. has to make two pages
+
+%This chapter should give a short overview over the whole thesis. It should provide background information on the thesis topic, introduce the task definition and give a short outlook on the rest of thesis. 

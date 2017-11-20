@@ -1,0 +1,13 @@
+Describe LLDN in background MAC.
+Also in implementation.
+12 slides.
+
+
+
+
+
+
+
+Internship
+Change source and destination
+Check solution of exam paper for trace route disadvantages.

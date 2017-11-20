@@ -1,0 +1,100 @@
+% $ biblatex auxiliary file $
+% $ biblatex version 2.6 $
+% Do not modify the above lines!
+%
+% This is an auxiliary file used by the 'biblatex' package.
+% This file may safely be deleted. It will be recreated as
+% required.
+%
+\begingroup
+\makeatletter
+\@ifundefined{ver@biblatex.sty}
+  {\@latex@error
+     {Missing 'biblatex' package}
+     {The bibliography requires the 'biblatex' package.}
+      \aftergroup\endinput}
+  {}
+\endgroup
+
+\entry{mephd2014}{thesis}{}
+  \name{author}{1}{}{%
+    {{}%
+     {Myself}{M.}%
+     {Roberto}{R.}%
+     {}{}%
+     {}{}}%
+  }
+  \strng{namehash}{MR1}
+  \strng{fullhash}{MR1}
+  \field{sortinit}{M}
+  \field{note}{unpublished thesis}
+  \field{title}{A great memoir}
+  \list{institution}{1}{%
+    {UCXDX}%
+  }
+  \field{type}{phdthesis}
+  \field{year}{2014}
+\endentry
+
+\entry{mepdh2014bis}{thesis}{}
+  \name{author}{1}{}{%
+    {{}%
+     {Myself}{M.}%
+     {Roberto}{R.}%
+     {}{}%
+     {}{}}%
+  }
+  \strng{namehash}{MR1}
+  \strng{fullhash}{MR1}
+  \field{sortinit}{M}
+  \field{addendum}{unpublished thesis}
+  \field{title}{A great memoir}
+  \list{institution}{1}{%
+    {UCXDX}%
+  }
+  \field{type}{phdthesis}
+  \field{year}{2014}
+\endentry
+
+\entry{meunpub2014}{unpublished}{}
+  \name{author}{1}{}{%
+    {{}%
+     {Myself}{M.}%
+     {Roberto}{R.}%
+     {}{}%
+     {}{}}%
+  }
+  \strng{namehash}{MR1}
+  \strng{fullhash}{MR1}
+  \field{sortinit}{M}
+  \field{note}{unpublished thesis}
+  \field{title}{A great memoir}
+  \list{institution}{1}{%
+    {UCXDX}%
+  }
+  \field{year}{2014}
+\endentry
+
+\entry{meunpub2014bis}{unpublished}{}
+  \name{author}{1}{}{%
+    {{}%
+     {Myself}{M.}%
+     {Roberto}{R.}%
+     {}{}%
+     {}{}}%
+  }
+  \strng{namehash}{MR1}
+  \strng{fullhash}{MR1}
+  \field{sortinit}{M}
+  \field{addendum}{unpublished thesis}
+  \field{title}{A great memoir}
+  \list{institution}{1}{%
+    {UCXDX}%
+  }
+  \field{year}{2014}
+\endentry
+
+\lossort
+\endlossort
+
+\endinput

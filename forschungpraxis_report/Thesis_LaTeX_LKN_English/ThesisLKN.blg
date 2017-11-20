@@ -1,0 +1,60 @@
+This is BibTeX, Version 0.99d (TeX Live 2015/Debian)
+Capacity: max_strings=35307, hash_size=35307, hash_prime=30011
+The top-level auxiliary file: ThesisLKN.aux
+A level-1 auxiliary file: Statements.aux
+A level-1 auxiliary file: Abstract.aux
+A level-1 auxiliary file: Introduction.aux
+A level-1 auxiliary file: Background.aux
+A level-1 auxiliary file: Evaluation.aux
+A level-1 auxiliary file: Conclusions.aux
+A level-1 auxiliary file: Appendix.aux
+A level-1 auxiliary file: Abbreviations.aux
+The style file: alpha.bst
+Database file #1: OpenWSN.bib.bib
+Database file #2: S1389128612002423.bib.bib
+Database file #3: bib.bib.bib
+Warning--entry type for "Yagiz" isn't style-file defined
+--line 1 of file bib.bib.bib
+Warning--to sort, need author or key in Craig.Peacock@beyondlogic.org
+You've used 4 entries,
+            2543 wiz_defined-function locations,
+            598 strings with 5324 characters,
+and the built_in function-call counts, 1557 in all, are:
+= -- 149
+> -- 78
+< -- 1
++ -- 27
+- -- 27
+* -- 119
+:= -- 255
+add.period$ -- 12
+call.type$ -- 4
+change.case$ -- 27
+chr.to.int$ -- 4
+cite$ -- 6
+duplicate$ -- 49
+empty$ -- 117
+format.name$ -- 30
+if$ -- 314
+int.to.chr$ -- 1
+int.to.str$ -- 0
+missing$ -- 2
+newline$ -- 24
+num.names$ -- 9
+pop$ -- 34
+preamble$ -- 1
+purify$ -- 31
+quote$ -- 0
+skip$ -- 42
+stack$ -- 0
+substring$ -- 87
+swap$ -- 4
+text.length$ -- 1
+text.prefix$ -- 1
+top$ -- 0
+type$ -- 32
+warning$ -- 1
+while$ -- 11
+width$ -- 5
+write$ -- 52
+(There were 2 warnings)

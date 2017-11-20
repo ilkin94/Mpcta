@@ -1,0 +1,12 @@
+\chapter{Conclusions and Outlook}
+
+%TODO explain that queuing delay is not captured yet in study, It requires hardware sniffers, to capture timing information. Network management python module and opendriver can be extended to support more functinalities and options to passively observe network for better understanding of network. This helps for better understading of latencies queues and schedule.
+
+\section{Conclusion}
+Our goal was to evaluate latency components in wireless sensor networks. OpenVisualizer was making this very hard. To make characterization easy new eastbound interface components are developed(Open serial driver and Minimal network management python interface). Extensive latency analysis of eastbound interface is carried out. This found to be bottleneck in overall system latency. Slot width design based on eastbound data size is presented. At last Communication stack processing delay characterization is carried out.
+
+
+\section{Future work}
+In the future work we would like to extend network management module to a full fledged wireless test which eases the analysis and characterization of wireless sensor networks. Until now characterization of east bound interface is carried out only software sniffing of packets. It doesn't throw light queuing delay at USB-UART chip. We would like to measure these values with hardware sniffers.
+
+With eastbound interface characterized, with latency schedule we would like to integrate our system to simulated control system to study latency effects on stability and to explore possibility of further reduction of latency.
