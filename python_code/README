@@ -1,0 +1,21 @@
+Folder contains network management module implementation.
+
+We one wants to build complete network with L4/L3 then following files are needed.
+
+Network management module:
+dagroot_packet_inject.py : This script is needed for communicating with the network coordinator.
+It implements a communication with the network coordinator
+Above script uses following scripts:
+
+--------------> Routing.py for processing DAO messages and decompression 6LoWPAN packet to IPv6 and vice versa.
+--------------> UDPPacket.py for forming UDP over IPv6 packet from payload data.
+--------------> ParserData.py recovers the packet from received serial data in which src and sest addresses are appended.
+
+
+
+serial_comm_mote.py: This script is needed for communicating with the leaf nodes.
+implements a serial communication, serial packet frame formats. and network management
+
+
+ 
+
